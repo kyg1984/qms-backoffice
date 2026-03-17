@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, UserX, UserCheck } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal } from '../components/Modal';
 import type { UserRole, User } from '../types';
@@ -13,7 +13,7 @@ const ROLE_COLOR: Record<UserRole, string> = {
   VIEWER: 'bg-gray-100 text-gray-600 border border-gray-200',
 };
 
-const INIT_FORM = { name: '', email: '', role: 'VIEWER' as UserRole };
+const INIT_FORM = { name: '', email: '', password: '', role: 'VIEWER' as UserRole };
 
 export const UserManagementPage = () => {
   const { users, setUsers, currentUser } = useApp();
@@ -22,6 +22,7 @@ export const UserManagementPage = () => {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [formError, setFormError] = useState('');
+  const [showFormPw, setShowFormPw] = useState(false);
   const [filterRole, setFilterRole] = useState<UserRole | ''>('');
   const [filterActive, setFilterActive] = useState<'' | 'active' | 'inactive'>('');
 
@@ -45,13 +46,15 @@ export const UserManagementPage = () => {
     setEditUser(null);
     setForm(INIT_FORM);
     setFormError('');
+    setShowFormPw(false);
     setShowModal(true);
   };
 
   const openEdit = (u: User) => {
     setEditUser(u);
-    setForm({ name: u.name, email: u.email, role: u.role });
+    setForm({ name: u.name, email: u.email, password: '', role: u.role });
     setFormError('');
+    setShowFormPw(false);
     setShowModal(true);
   };
 
@@ -59,15 +62,25 @@ export const UserManagementPage = () => {
     setFormError('');
     if (!form.name || !form.email) { setFormError('이름과 이메일을 입력하세요.'); return; }
     if (!isValidEmail(form.email)) { setFormError('올바른 이메일 형식이 아닙니다. (예: user@company.com)'); return; }
-    if (!editUser && users.some(u => u.email === form.email)) { setFormError('이미 사용 중인 이메일입니다.'); return; }
+    if (!editUser) {
+      if (!form.password || form.password.length < 4) { setFormError('비밀번호를 4자 이상 입력하세요.'); return; }
+      if (users.some(u => u.email === form.email)) { setFormError('이미 사용 중인 이메일입니다.'); return; }
+    }
 
     if (editUser) {
-      setUsers(users.map(u => u.id === editUser.id ? { ...u, ...form, updated_at: toDateStr() } : u));
+      setUsers(users.map(u => u.id === editUser.id ? {
+        ...u,
+        name: form.name,
+        role: form.role,
+        ...(form.password ? { password: form.password } : {}),
+        updated_at: toDateStr(),
+      } : u));
     } else {
       setUsers([...users, {
         id: `u${Date.now()}`,
         name: form.name,
         email: form.email,
+        password: form.password,
         role: form.role,
         is_active: true,
         created_at: toDateStr(),
@@ -174,6 +187,24 @@ export const UserManagementPage = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">이메일 <span className="text-red-500">*</span></label>
             <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="이메일" disabled={!!editUser} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              비밀번호 {!editUser && <span className="text-red-500">*</span>}
+              {editUser && <span className="text-gray-400 font-normal text-xs ml-1">(변경 시에만 입력)</span>}
+            </label>
+            <div className="relative">
+              <input
+                type={showFormPw ? 'text' : 'password'}
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder={editUser ? '변경할 비밀번호 (미입력 시 유지)' : '비밀번호 (최소 4자)'}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-9"
+              />
+              <button type="button" onClick={() => setShowFormPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showFormPw ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">역할 <span className="text-red-500">*</span></label>
