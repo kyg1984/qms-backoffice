@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import type { DocType, DocStatus, Document } from '../types';
+import { toDateStr } from '../utils/date';
 
 const DOC_TYPE_LABEL: Record<DocType, string> = { QI: '지침서', QP: '절차서', QM: '매뉴얼' };
 
@@ -97,8 +98,8 @@ export const DocumentListPage = () => {
       status: 'REVIEW',
       current_rev: trimmedForm.current_rev,
       created_by: currentUser.id,
-      created_at: new Date().toISOString().slice(0, 10),
-      updated_at: new Date().toISOString().slice(0, 10),
+      created_at: toDateStr(),
+      updated_at: toDateStr(),
     };
     const sorted = [...documents, newDoc].sort((a, b) => a.doc_number.localeCompare(b.doc_number));
     setDocuments(sorted);
@@ -114,7 +115,7 @@ export const DocumentListPage = () => {
       file_size: 100000,
       is_current: true,
       uploaded_by: currentUser.id,
-      uploaded_at: new Date().toISOString().slice(0, 10),
+      uploaded_at: toDateStr(),
     }]);
     setShowUploadModal(false);
     setUploadForm(INITIAL_FORM);

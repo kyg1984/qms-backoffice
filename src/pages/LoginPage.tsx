@@ -18,6 +18,8 @@ const CompanyLogo = () => (
   </svg>
 );
 
+const DEMO_PASSWORD = '1234'; // 목업 공통 비밀번호
+
 const DEMO_ACCOUNTS = [
   { name: '김관리 (Admin)', email: 'admin@company.com', role: 'ADMIN' as UserRole },
   { name: '이작성 (Author)', email: 'author1@company.com', role: 'AUTHOR' as UserRole },
@@ -33,13 +35,16 @@ export const LoginPage = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.email === email && u.is_active);
+    if (!email.trim()) { setError('이메일을 입력하세요.'); return; }
+    if (!password) { setError('비밀번호를 입력하세요.'); return; }
+    if (password !== DEMO_PASSWORD) { setError(`비밀번호가 올바르지 않습니다. (데모: ${DEMO_PASSWORD})`); return; }
+    const user = users.find(u => u.email === email.trim() && u.is_active);
     if (user) {
       setCurrentUser(user);
       setIsLoggedIn(true);
       setError('');
     } else {
-      setError('이메일을 확인하거나 데모 계정을 클릭하세요.');
+      setError('등록되지 않은 이메일이거나 비활성 계정입니다.');
     }
   };
 
@@ -78,7 +83,7 @@ export const LoginPage = () => {
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="비밀번호를 입력하세요"
+                  placeholder={`비밀번호를 입력하세요 (데모: ${DEMO_PASSWORD})`}
                   className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">

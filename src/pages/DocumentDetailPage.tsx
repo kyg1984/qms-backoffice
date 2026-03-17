@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, FileText, History, Link2, Info,
-  Plus, Trash2, Edit2, Check, X, Maximize2, ExternalLink,
-  ChevronRight, Search,
+  Plus, Trash2, Edit2, X, Maximize2, ExternalLink, Search,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import type { DocumentHistory } from '../types';
+import { toDateStr } from '../utils/date';
 
 const DOC_TYPE_LABEL: Record<string, string> = { QI: '지침서', QP: '절차서', QM: '매뉴얼' };
 const WEB_VIEW_EXTS = ['pdf', 'png', 'jpg', 'jpeg'];
@@ -35,9 +35,6 @@ export const DocumentDetailPage = () => {
   const [newVerRev, setNewVerRev] = useState('');
   const [newVerFile, setNewVerFile] = useState('');
   const [newVerExt, setNewVerExt] = useState('pdf');
-
-  // Status change (reserved for future use)
-  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
 
   // History
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -83,11 +80,6 @@ export const DocumentDetailPage = () => {
     alert(`다운로드: ${doc.doc_number}_${doc.doc_name}_${doc.current_rev}.${currentFile.file_ext}\n(목업 - 실제 파일 없음)`);
   };
 
-  const confirmApprove = () => {
-    setDocuments(documents.map(d => d.id === doc.id ? { ...d, status: 'APPROVED', updated_at: new Date().toISOString().slice(0, 10) } : d));
-    setShowApproveConfirm(false);
-  };
-
   const handleNewVersion = () => {
     if (!newVerRev || !newVerFile) { alert('Rev 번호와 파일을 입력하세요.'); return; }
     setDocumentFiles(documentFiles.map(f => f.document_id === doc.id ? { ...f, is_current: false } : f).concat({
@@ -100,9 +92,9 @@ export const DocumentDetailPage = () => {
       file_size: 120000,
       is_current: true,
       uploaded_by: currentUser.id,
-      uploaded_at: new Date().toISOString().slice(0, 10),
+      uploaded_at: toDateStr(),
     }));
-    setDocuments(documents.map(d => d.id === doc.id ? { ...d, current_rev: newVerRev, status: 'REVIEW', updated_at: new Date().toISOString().slice(0, 10) } : d));
+    setDocuments(documents.map(d => d.id === doc.id ? { ...d, current_rev: newVerRev, status: 'REVIEW', updated_at: toDateStr() } : d));
     setShowNewVersionModal(false);
     setNewVerRev('');
     setNewVerFile('');
@@ -162,7 +154,7 @@ export const DocumentDetailPage = () => {
       file_size: 80000,
       is_current: false,
       uploaded_by: currentUser.id,
-      uploaded_at: new Date().toISOString().slice(0, 10),
+      uploaded_at: toDateStr(),
       file_category: 'form',
     }]);
     setShowFormModal(false);
@@ -181,7 +173,7 @@ export const DocumentDetailPage = () => {
       file_size: 80000,
       is_current: false,
       uploaded_by: currentUser.id,
-      uploaded_at: new Date().toISOString().slice(0, 10),
+      uploaded_at: toDateStr(),
       file_category: 'instruction',
     }]);
     setShowInstructionModal(false);
@@ -195,7 +187,7 @@ export const DocumentDetailPage = () => {
       source_doc_id: doc.id,
       target_doc_id: targetDocId,
       created_by: currentUser.id,
-      created_at: new Date().toISOString().slice(0, 10),
+      created_at: toDateStr(),
     }]);
     setShowRelationModal(false);
     setRelSearch('');
@@ -576,22 +568,6 @@ export const DocumentDetailPage = () => {
           </div>
         </div>
       )}
-
-      {/* Approve Confirm Modal */}
-      <Modal isOpen={showApproveConfirm} onClose={() => setShowApproveConfirm(false)} title="문서 승인" size="sm">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <StatusBadge status={doc.status} />
-            <ChevronRight size={16} className="text-gray-400" />
-            <StatusBadge status="APPROVED" />
-          </div>
-          <p className="text-sm text-gray-600">문서를 승인하시겠습니까? 승인 후에는 되돌릴 수 없습니다.</p>
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setShowApproveConfirm(false)} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
-            <button onClick={confirmApprove} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"><Check size={14} />승인</button>
-          </div>
-        </div>
-      </Modal>
 
       {/* New Version Modal */}
       <Modal isOpen={showNewVersionModal} onClose={() => setShowNewVersionModal(false)} title="새 버전 등록" size="md">

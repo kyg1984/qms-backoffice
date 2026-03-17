@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { Modal } from '../components/Modal';
 import type { UserRole, User } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { toDateStr, isValidEmail } from '../utils/date';
 
 const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '관리자', AUTHOR: '작성자', VIEWER: '열람자' };
 const ROLE_COLOR: Record<UserRole, string> = {
@@ -57,11 +58,11 @@ export const UserManagementPage = () => {
   const saveUser = () => {
     setFormError('');
     if (!form.name || !form.email) { setFormError('이름과 이메일을 입력하세요.'); return; }
-    if (!form.email.includes('@')) { setFormError('올바른 이메일을 입력하세요.'); return; }
+    if (!isValidEmail(form.email)) { setFormError('올바른 이메일 형식이 아닙니다. (예: user@company.com)'); return; }
     if (!editUser && users.some(u => u.email === form.email)) { setFormError('이미 사용 중인 이메일입니다.'); return; }
 
     if (editUser) {
-      setUsers(users.map(u => u.id === editUser.id ? { ...u, ...form, updated_at: new Date().toISOString().slice(0, 10) } : u));
+      setUsers(users.map(u => u.id === editUser.id ? { ...u, ...form, updated_at: toDateStr() } : u));
     } else {
       setUsers([...users, {
         id: `u${Date.now()}`,
@@ -69,8 +70,8 @@ export const UserManagementPage = () => {
         email: form.email,
         role: form.role,
         is_active: true,
-        created_at: new Date().toISOString().slice(0, 10),
-        updated_at: new Date().toISOString().slice(0, 10),
+        created_at: toDateStr(),
+        updated_at: toDateStr(),
       }]);
     }
     setShowModal(false);
@@ -78,7 +79,7 @@ export const UserManagementPage = () => {
 
   const toggleActive = (u: User) => {
     if (u.id === currentUser.id) { alert('자신의 계정은 비활성화할 수 없습니다.'); return; }
-    setUsers(users.map(x => x.id === u.id ? { ...x, is_active: !x.is_active, updated_at: new Date().toISOString().slice(0, 10) } : x));
+    setUsers(users.map(x => x.id === u.id ? { ...x, is_active: !x.is_active, updated_at: toDateStr() } : x));
   };
 
   return (
