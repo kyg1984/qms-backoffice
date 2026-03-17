@@ -29,9 +29,10 @@ export const Sidebar = () => {
 
   const handleChangePw = () => {
     setPwError('');
+    const PW_RULE = /^(?=.*[A-Za-z])(?=.*[0-9]).{4,}$/;
     if (!pwForm.current) { setPwError('현재 비밀번호를 입력하세요.'); return; }
     if (pwForm.current !== currentUser.password) { setPwError('현재 비밀번호가 올바르지 않습니다.'); return; }
-    if (!pwForm.next || pwForm.next.length < 8) { setPwError('새 비밀번호는 8자 이상이어야 합니다.'); return; }
+    if (!PW_RULE.test(pwForm.next)) { setPwError('새 비밀번호는 영문 + 숫자 조합 4자 이상이어야 합니다.'); return; }
     if (pwForm.next === pwForm.current) { setPwError('새 비밀번호가 현재 비밀번호와 동일합니다.'); return; }
     if (pwForm.next !== pwForm.confirm) { setPwError('새 비밀번호가 일치하지 않습니다.'); return; }
 
@@ -148,7 +149,7 @@ export const Sidebar = () => {
                   type={showFields.next ? 'text' : 'password'}
                   value={pwForm.next}
                   onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
-                  placeholder="새 비밀번호 (최소 8자)"
+                  placeholder="새 비밀번호 (영문+숫자, 4자 이상)"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-9"
                 />
                 <button type="button" onClick={() => toggleField('next')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -160,21 +161,23 @@ export const Sidebar = () => {
                 <div className="mt-1.5 flex gap-1">
                   {[1, 2, 3, 4].map(i => {
                     const len = pwForm.next.length;
-                    const hasUpper = /[A-Z]/.test(pwForm.next);
+                    const hasLetter = /[A-Za-z]/.test(pwForm.next);
                     const hasNum = /[0-9]/.test(pwForm.next);
                     const hasSpec = /[^A-Za-z0-9]/.test(pwForm.next);
-                    const score = (len >= 8 ? 1 : 0) + (len >= 12 ? 1 : 0) + ((hasUpper && hasNum) ? 1 : 0) + (hasSpec ? 1 : 0);
+                    const valid = hasLetter && hasNum && len >= 4;
+                    const score = valid ? ((len >= 8 ? 1 : 0) + (len >= 12 ? 1 : 0) + (hasSpec ? 1 : 0) + 1) : 0;
                     const color = score >= i ? (score <= 1 ? 'bg-red-400' : score <= 2 ? 'bg-yellow-400' : 'bg-green-500') : 'bg-gray-200';
                     return <div key={i} className={`h-1 flex-1 rounded-full ${color}`} />;
                   })}
                   <span className="text-xs text-gray-400 ml-1">
                     {(() => {
                       const len = pwForm.next.length;
-                      const hasUpper = /[A-Z]/.test(pwForm.next);
+                      const hasLetter = /[A-Za-z]/.test(pwForm.next);
                       const hasNum = /[0-9]/.test(pwForm.next);
                       const hasSpec = /[^A-Za-z0-9]/.test(pwForm.next);
-                      const score = (len >= 8 ? 1 : 0) + (len >= 12 ? 1 : 0) + ((hasUpper && hasNum) ? 1 : 0) + (hasSpec ? 1 : 0);
-                      return score <= 1 ? '약함' : score <= 2 ? '보통' : score <= 3 ? '강함' : '매우 강함';
+                      const valid = hasLetter && hasNum && len >= 4;
+                      const score = valid ? ((len >= 8 ? 1 : 0) + (len >= 12 ? 1 : 0) + (hasSpec ? 1 : 0) + 1) : 0;
+                      return score === 0 ? '규칙 미충족' : score <= 1 ? '약함' : score <= 2 ? '보통' : score <= 3 ? '강함' : '매우 강함';
                     })()}
                   </span>
                 </div>

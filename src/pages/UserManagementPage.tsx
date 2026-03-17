@@ -62,9 +62,12 @@ export const UserManagementPage = () => {
     setFormError('');
     if (!form.name || !form.email) { setFormError('이름과 이메일을 입력하세요.'); return; }
     if (!isValidEmail(form.email)) { setFormError('올바른 이메일 형식이 아닙니다. (예: user@company.com)'); return; }
+    const PW_RULE = /^(?=.*[A-Za-z])(?=.*[0-9]).{4,}$/;
     if (!editUser) {
-      if (!form.password || form.password.length < 4) { setFormError('비밀번호를 4자 이상 입력하세요.'); return; }
+      if (!PW_RULE.test(form.password)) { setFormError('비밀번호는 영문 + 숫자 조합 4자 이상이어야 합니다.'); return; }
       if (users.some(u => u.email === form.email)) { setFormError('이미 사용 중인 이메일입니다.'); return; }
+    } else if (form.password && !PW_RULE.test(form.password)) {
+      setFormError('비밀번호는 영문 + 숫자 조합 4자 이상이어야 합니다.'); return;
     }
 
     if (editUser) {
@@ -198,7 +201,7 @@ export const UserManagementPage = () => {
                 type={showFormPw ? 'text' : 'password'}
                 value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                placeholder={editUser ? '변경할 비밀번호 (미입력 시 유지)' : '비밀번호 (최소 4자)'}
+                placeholder={editUser ? '변경할 비밀번호 (미입력 시 유지)' : '영문+숫자 조합 4자 이상'}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-9"
               />
               <button type="button" onClick={() => setShowFormPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
