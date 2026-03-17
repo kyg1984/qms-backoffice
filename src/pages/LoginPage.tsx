@@ -3,20 +3,6 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { UserRole } from '../types';
 
-const CompanyLogo = () => (
-  <svg viewBox="0 0 96 72" width="96" height="72" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="48" cy="36" rx="48" ry="36" fill="#29ABE2" />
-    <ellipse cx="48" cy="36" rx="48" ry="36" fill="url(#loginLogoGrad)" />
-    <path d="M48 72 C21.49 72 0 55.882 0 36 C0 16.118 21.49 0 48 0 L96 0 C96 0 80 16 80 36 C80 56 96 72 96 72 Z" fill="#1A3A5C" opacity="0.85" />
-    <path d="M60 18 C44 18 32 26.059 32 36 C32 45.941 44 54 60 54 C64 54 67.8 53.314 71.2 52.059 L66 45 C63.6 45.657 61.8 46 60 46 C48.954 46 40 41.523 40 36 C40 30.477 48.954 26 60 26 C61.8 26 63.6 26.343 66 27 L71.2 19.941 C67.8 18.686 64 18 60 18 Z" fill="white" />
-    <defs>
-      <linearGradient id="loginLogoGrad" x1="0" y1="0" x2="96" y2="72" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#29ABE2" />
-        <stop offset="100%" stopColor="#1A7DB5" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
 
 const DEMO_PASSWORD = '1234'; // 목업 공통 비밀번호
 
