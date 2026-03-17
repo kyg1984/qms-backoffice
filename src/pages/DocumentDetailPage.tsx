@@ -9,9 +9,9 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import type { DocumentHistory } from '../types';
 import { toDateStr } from '../utils/date';
+import { isWebViewSupported, MAX_FILE_SIZE_BYTES } from '../config/fileTypes';
 
 const DOC_TYPE_LABEL: Record<string, string> = { QI: '지침서', QP: '절차서', QM: '매뉴얼' };
-const WEB_VIEW_EXTS = ['pdf', 'png', 'jpg', 'jpeg'];
 
 type Tab = 'webview' | 'info' | 'history' | 'relations';
 
@@ -193,7 +193,7 @@ export const DocumentDetailPage = () => {
     setRelSearch('');
   };
 
-  const webViewSupported = currentFile && WEB_VIEW_EXTS.includes(currentFile.file_ext);
+  const webViewSupported = currentFile && isWebViewSupported(currentFile.file_ext);
   const isPdfViewable = currentFile && (currentFile.file_ext === 'pdf' || currentFile.pdf_path);
   const isConverting = currentFile?.file_ext === 'docx' && !currentFile.pdf_path;
 

@@ -6,6 +6,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import type { DocType, DocStatus, Document } from '../types';
 import { toDateStr } from '../utils/date';
+import { MAX_FILE_SIZE_BYTES } from '../config/fileTypes';
 
 const DOC_TYPE_LABEL: Record<DocType, string> = { QI: '지침서', QP: '절차서', QM: '매뉴얼' };
 
@@ -366,7 +367,7 @@ export const DocumentListPage = () => {
                     onChange={e => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        if (file.size > 300 * 1024 * 1024) { alert('파일 크기는 300MB 이하여야 합니다.'); return; }
+                        if (file.size > MAX_FILE_SIZE_BYTES) { alert(`파일 크기는 ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB 이하여야 합니다.`); return; }
                         const ext = file.name.split('.').pop() ?? 'pdf';
                         setUploadForm(f => ({ ...f, fileName: file.name, fileExt: ext }));
                       }
