@@ -1,31 +1,19 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type {
-  User,
-  Document,
-  DocumentFile,
-  DocumentHistory,
-  DocumentRelation,
-  AccessRequest,
+  User, Document, DocumentFile, DocumentHistory, DocumentRelation, AccessRequest,
 } from '../types';
-import {
-  mockUsers,
-  mockDocuments,
-  mockDocumentFiles,
-  mockDocumentHistories,
-  mockDocumentRelations,
-  getCurrentUser,
-} from '../data/mockData';
+import { userService } from '../services/userService';
+import { documentService } from '../services/documentService';
+import { fileService } from '../services/fileService';
+import { historyService } from '../services/historyService';
+import { relationService } from '../services/relationService';
+import { departmentService } from '../services/departmentService';
+import { accessRequestService } from '../services/accessRequestService';
 
-const LS_ACCESS_REQUESTS = 'qms_access_requests';
-
-function loadAccessRequests(): AccessRequest[] {
-  try {
-    const raw = localStorage.getItem(LS_ACCESS_REQUESTS);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
+const DEFAULT_USER: User = {
+  id: '', name: '', email: '', password: '', role: 'VIEWER',
+  department: undefined, is_active: false, created_at: '', updated_at: '',
+};
 
 interface AppContextType {
   currentUser: User;
@@ -46,41 +34,54 @@ interface AppContextType {
   setDepartments: (depts: string[]) => void;
   accessRequests: AccessRequest[];
   setAccessRequests: (reqs: AccessRequest[]) => void;
+  isLoading: boolean;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(getCurrentUser());
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
-  const [documentFiles, setDocumentFiles] = useState<DocumentFile[]>(mockDocumentFiles);
-  const [documentHistories, setDocumentHistories] = useState<DocumentHistory[]>(mockDocumentHistories);
-  const [documentRelations, setDocumentRelations] = useState<DocumentRelation[]>(mockDocumentRelations);
+  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
+  const [users, setUsers] = useState<User[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<DocumentFile[]>([]);
+  const [documentHistories, setDocumentHistories] = useState<DocumentHistory[]>([]);
+  const [documentRelations, setDocumentRelations] = useState<DocumentRelation[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [departments, setDepartments] = useState<string[]>(['품질팀', '개발팀', '생산팀', '구매팀', '영업팀', '경영지원팀']);
-  const [accessRequests, setAccessRequestsState] = useState<AccessRequest[]>(loadAccessRequests);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // accessRequests 변경 시 localStorage 동기화
-  const setAccessRequests = (reqs: AccessRequest[]) => {
-    setAccessRequestsState(reqs);
+  const refreshData = useCallback(async () => {
+    setIsLoading(true);
     try {
-      localStorage.setItem(LS_ACCESS_REQUESTS, JSON.stringify(reqs));
-    } catch { /* ignore */ }
-  };
-
-  // 다른 탭에서 변경 시 동기화
-  useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key === LS_ACCESS_REQUESTS) {
-        try {
-          setAccessRequestsState(e.newValue ? JSON.parse(e.newValue) : []);
-        } catch { /* ignore */ }
-      }
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
+      const [u, docs, files, histories, relations, depts, requests] = await Promise.all([
+        userService.getAll(),
+        documentService.getAll(),
+        fileService.getAll(),
+        historyService.getAll(),
+        relationService.getAll(),
+        departmentService.getAll(),
+        accessRequestService.getAll(),
+      ]);
+      setUsers(u);
+      setDocuments(docs);
+      setDocumentFiles(files);
+      setDocumentHistories(histories);
+      setDocumentRelations(relations);
+      setDepartments(depts);
+      setAccessRequests(requests);
+    } catch (err) {
+      console.error('Supabase 데이터 로드 실패:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // 앱 시작 시 Supabase에서 전체 데이터 로드
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   return (
     <AppContext.Provider value={{
@@ -93,6 +94,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isLoggedIn, setIsLoggedIn,
       departments, setDepartments,
       accessRequests, setAccessRequests,
+      isLoading,
+      refreshData,
     }}>
       {children}
     </AppContext.Provider>

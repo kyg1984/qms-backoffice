@@ -5,6 +5,9 @@ import { Modal } from '../components/Modal';
 import type { UserRole, User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { toDateStr, isValidEmail } from '../utils/date';
+import { userService } from '../services/userService';
+import { departmentService } from '../services/departmentService';
+import { accessRequestService } from '../services/accessRequestService';
 
 const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '관리자', AUTHOR: '작성자', VIEWER: '열람자' };
 const ROLE_COLOR: Record<UserRole, string> = {
@@ -61,7 +64,7 @@ export const UserManagementPage = () => {
     setShowModal(true);
   };
 
-  const saveUser = () => {
+  const saveUser = async () => {
     setFormError('');
     if (!form.name || !form.email) { setFormError('이름과 이메일을 입력하세요.'); return; }
     if (!isValidEmail(form.email)) { setFormError('올바른 이메일 형식이 아닙니다. (예: user@company.com)'); return; }
@@ -73,70 +76,85 @@ export const UserManagementPage = () => {
       setFormError('비밀번호는 영문 + 숫자 조합 4자 이상이어야 합니다.'); return;
     }
 
-    if (editUser) {
-      setUsers(users.map(u => u.id === editUser.id ? {
-        ...u,
-        name: form.name,
-        role: form.role,
-        department: form.department.trim() || undefined,
-        ...(form.password ? { password: form.password } : {}),
-        updated_at: toDateStr(),
-      } : u));
-    } else {
-      setUsers([...users, {
-        id: `u${Date.now()}`,
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        role: form.role,
-        department: form.department.trim() || undefined,
-        is_active: true,
-        created_at: toDateStr(),
-        updated_at: toDateStr(),
-      }]);
+    try {
+      if (editUser) {
+        const updates = {
+          name: form.name,
+          role: form.role,
+          department: form.department.trim() || undefined,
+          ...(form.password ? { password: form.password } : {}),
+          updated_at: toDateStr(),
+        };
+        await userService.update(editUser.id, updates);
+        setUsers(users.map(u => u.id === editUser.id ? { ...u, ...updates } : u));
+      } else {
+        const newUser = {
+          id: `u${Date.now()}`,
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          role: form.role,
+          department: form.department.trim() || undefined,
+          is_active: true,
+          created_at: toDateStr(),
+          updated_at: toDateStr(),
+        };
+        await userService.create(newUser);
+        setUsers([...users, newUser]);
+      }
+      setShowModal(false);
+    } catch {
+      setFormError('저장 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
     }
-    setShowModal(false);
   };
 
-  const toggleActive = (u: User) => {
+  const toggleActive = async (u: User) => {
     if (u.id === currentUser.id) { alert('자신의 계정은 비활성화할 수 없습니다.'); return; }
-    setUsers(users.map(x => x.id === u.id ? { ...x, is_active: !x.is_active, updated_at: toDateStr() } : x));
+    try {
+      const updates = { is_active: !u.is_active, updated_at: toDateStr() };
+      await userService.update(u.id, updates);
+      setUsers(users.map(x => x.id === u.id ? { ...x, ...updates } : x));
+    } catch { alert('상태 변경 중 오류가 발생했습니다.'); }
   };
 
   const pendingRequests = accessRequests.filter(r => r.status === 'pending');
 
-  const handleApprove = (reqId: string) => {
+  const handleApprove = async (reqId: string) => {
     const req = accessRequests.find(r => r.id === reqId);
     if (!req) return;
     const role = approveRoles[reqId] || 'VIEWER';
     const now = toDateStr();
-    // 사용자 추가
-    setUsers([...users, {
-      id: `u${Date.now()}`,
-      name: req.name,
-      email: req.email,
-      password: req.password,
-      role,
-      department: req.department,
-      is_active: true,
-      created_at: now,
-      updated_at: now,
-    }]);
-    // 요청 상태 업데이트
-    setAccessRequests(accessRequests.map(r =>
-      r.id === reqId ? { ...r, status: 'approved', role, reviewed_at: now } : r
-    ));
-    alert(`✉️ ${req.email} 으로 승인 안내 메일이 발송되었습니다.\n역할: ${role === 'AUTHOR' ? '작성자' : '열람자'}`);
+    try {
+      const newUser = {
+        id: `u${Date.now()}`,
+        name: req.name,
+        email: req.email,
+        password: req.password,
+        role,
+        department: req.department,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      };
+      await userService.create(newUser);
+      const reqUpdates = { status: 'approved' as const, role, reviewed_at: now };
+      await accessRequestService.update(reqId, reqUpdates);
+      setUsers([...users, newUser]);
+      setAccessRequests(accessRequests.map(r => r.id === reqId ? { ...r, ...reqUpdates } : r));
+      alert(`✉️ ${req.email} 으로 승인 안내 메일이 발송되었습니다.\n역할: ${role === 'AUTHOR' ? '작성자' : '열람자'}`);
+    } catch { alert('승인 처리 중 오류가 발생했습니다.'); }
   };
 
-  const handleReject = (reqId: string) => {
+  const handleReject = async (reqId: string) => {
     const req = accessRequests.find(r => r.id === reqId);
     if (!req) return;
     if (!window.confirm(`'${req.name}(${req.email})' 의 권한 요청을 거절하시겠습니까?`)) return;
     const now = toDateStr();
-    setAccessRequests(accessRequests.map(r =>
-      r.id === reqId ? { ...r, status: 'rejected', reviewed_at: now } : r
-    ));
+    try {
+      const updates = { status: 'rejected' as const, reviewed_at: now };
+      await accessRequestService.update(reqId, updates);
+      setAccessRequests(accessRequests.map(r => r.id === reqId ? { ...r, ...updates } : r));
+    } catch { alert('거절 처리 중 오류가 발생했습니다.'); }
   };
 
   return (
@@ -320,20 +338,25 @@ export const UserManagementPage = () => {
                   const name = newDeptName.trim();
                   if (!name) return;
                   if (departments.includes(name)) { alert('이미 존재하는 부서입니다.'); return; }
-                  setDepartments([...departments, name]);
-                  setNewDeptName('');
+                  departmentService.create(name).then(() => {
+                    setDepartments([...departments, name]);
+                    setNewDeptName('');
+                  }).catch(() => alert('부서 추가 중 오류가 발생했습니다.'));
                 }
               }}
               placeholder="부서명 입력 후 Enter 또는 추가 버튼"
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
-              onClick={() => {
+              onClick={async () => {
                 const name = newDeptName.trim();
                 if (!name) return;
                 if (departments.includes(name)) { alert('이미 존재하는 부서입니다.'); return; }
-                setDepartments([...departments, name]);
-                setNewDeptName('');
+                try {
+                  await departmentService.create(name);
+                  setDepartments([...departments, name]);
+                  setNewDeptName('');
+                } catch { alert('부서 추가 중 오류가 발생했습니다.'); }
               }}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
@@ -349,11 +372,14 @@ export const UserManagementPage = () => {
                 <div key={dept} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 group">
                   <span>{dept}</span>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (users.some(u => u.department === dept)) {
                         if (!window.confirm(`'${dept}' 부서를 사용 중인 계정이 있습니다. 삭제하시겠습니까?`)) return;
                       }
-                      setDepartments(departments.filter(d => d !== dept));
+                      try {
+                        await departmentService.delete(dept);
+                        setDepartments(departments.filter(d => d !== dept));
+                      } catch { alert('부서 삭제 중 오류가 발생했습니다.'); }
                     }}
                     className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                     title="삭제"

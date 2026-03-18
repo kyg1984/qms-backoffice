@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff, X, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { userService } from '../services/userService';
+import { accessRequestService } from '../services/accessRequestService';
 
 const KEY_EMAIL = 'qms_saved_email';
 const KEY_PASSWORD = 'qms_saved_password';
@@ -10,13 +12,14 @@ const PW_RULE = /^(?=.*[A-Za-z])(?=.*[0-9]).{4,}$/;
 const INIT_REQ = { name: '', email: '', password: '', department: '' };
 
 export const LoginPage = () => {
-  const { setIsLoggedIn, setCurrentUser, users, departments, accessRequests, setAccessRequests } = useApp();
+  const { setIsLoggedIn, setCurrentUser, departments, accessRequests, setAccessRequests, users } = useApp();
 
   // 로그인 상태
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [saveEmail, setSaveEmail] = useState(false);
   const [savePw, setSavePw] = useState(false);
 
@@ -42,23 +45,29 @@ export const LoginPage = () => {
     if (!checked) { setSavePw(false); }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) { setError('이메일을 입력하세요.'); return; }
     if (!password) { setError('비밀번호를 입력하세요.'); return; }
-
-    const user = users.find(u => u.email === email.trim() && u.is_active);
-    if (!user) { setError('등록되지 않은 이메일이거나 비활성 계정입니다.'); return; }
-    if (user.password !== password) { setError('비밀번호가 올바르지 않습니다.'); return; }
-
-    if (saveEmail) localStorage.setItem(KEY_EMAIL, email.trim());
-    else localStorage.removeItem(KEY_EMAIL);
-    if (savePw && saveEmail) localStorage.setItem(KEY_PASSWORD, btoa(password));
-    else localStorage.removeItem(KEY_PASSWORD);
-
-    setCurrentUser(user);
-    setIsLoggedIn(true);
+    setIsLoggingIn(true);
     setError('');
+    try {
+      // Supabase users 테이블에서 인증
+      const user = await userService.login(email.trim(), password);
+      if (!user) { setError('이메일 또는 비밀번호가 올바르지 않습니다.'); return; }
+
+      if (saveEmail) localStorage.setItem(KEY_EMAIL, email.trim());
+      else localStorage.removeItem(KEY_EMAIL);
+      if (savePw && saveEmail) localStorage.setItem(KEY_PASSWORD, btoa(password));
+      else localStorage.removeItem(KEY_PASSWORD);
+
+      setCurrentUser(user);
+      setIsLoggedIn(true);
+    } catch {
+      setError('로그인 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const openReqModal = () => {
@@ -69,7 +78,7 @@ export const LoginPage = () => {
     setShowReqModal(true);
   };
 
-  const handleRequest = () => {
+  const handleRequest = async () => {
     setReqError('');
     if (!reqForm.name.trim()) { setReqError('이름을 입력하세요.'); return; }
     if (!reqForm.department) { setReqError('부서를 선택하세요.'); return; }
@@ -88,19 +97,22 @@ export const LoginPage = () => {
     }
 
     const now = new Date().toISOString().slice(0, 10);
-    setAccessRequests([
-      ...accessRequests,
-      {
-        id: `req_${Date.now()}`,
-        name: reqForm.name.trim(),
-        email: reqForm.email.trim(),
-        password: reqForm.password,
-        department: reqForm.department,
-        status: 'pending',
-        requested_at: now,
-      },
-    ]);
-    setReqDone(true);
+    const newReq = {
+      id: `req_${Date.now()}`,
+      name: reqForm.name.trim(),
+      email: reqForm.email.trim(),
+      password: reqForm.password,
+      department: reqForm.department,
+      status: 'pending' as const,
+      requested_at: now,
+    };
+    try {
+      await accessRequestService.create(newReq);
+      setAccessRequests([...accessRequests, newReq]);
+      setReqDone(true);
+    } catch {
+      setReqError('요청 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
+    }
   };
 
   return (
@@ -164,9 +176,10 @@ export const LoginPage = () => {
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
+              disabled={isLoggingIn}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
             >
-              로그인
+              {isLoggingIn ? '로그인 중...' : '로그인'}
             </button>
           </form>
 

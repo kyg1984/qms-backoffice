@@ -6,6 +6,10 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import type { DocType, DocStatus, Document } from '../types';
 import { toDateStr } from '../utils/date';
+import { documentService } from '../services/documentService';
+import { fileService } from '../services/fileService';
+import { historyService } from '../services/historyService';
+import { relationService } from '../services/relationService';
 import { MAX_FILE_SIZE_BYTES } from '../config/fileTypes';
 
 const DOC_TYPE_LABEL: Record<DocType, string> = { QI: '지침서', QP: '절차서', QM: '매뉴얼' };
@@ -41,6 +45,7 @@ export const DocumentListPage = () => {
   const [uploadForm, setUploadForm] = useState(INITIAL_FORM);
   const [docNumberSuffix, setDocNumberSuffix] = useState('');
   const [uploadError, setUploadError] = useState('');
+  const [uploadFileObj, setUploadFileObj] = useState<File | null>(null);
 
   const nextQmNumber = useMemo(() => {
     const max = documents
@@ -86,7 +91,7 @@ export const DocumentListPage = () => {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     setUploadError('');
     const composedDocNumber = uploadForm.doc_type === 'QM'
       ? nextQmNumber
@@ -109,46 +114,81 @@ export const DocumentListPage = () => {
       setUploadError('이미 존재하는 문서번호입니다.');
       return;
     }
-    const newDoc: Document = {
-      id: `d${Date.now()}`,
-      doc_number: trimmedForm.doc_number,
-      doc_name: trimmedForm.doc_name,
-      doc_type: trimmedForm.doc_type,
-      department: trimmedForm.department,
-      status: 'REVIEW',
-      current_rev: trimmedForm.current_rev,
-      created_by: currentUser.id,
-      created_at: toDateStr(),
-      updated_at: trimmedForm.revised_at.trim() || toDateStr(),
-    };
-    const sorted = [...documents, newDoc].sort((a, b) => a.doc_number.localeCompare(b.doc_number));
-    setDocuments(sorted);
-    setSortKey('doc_number');
-    setSortDir('asc');
-    setDocumentFiles([...documentFiles, {
-      id: `f${Date.now()}`,
-      document_id: newDoc.id,
-      rev_number: trimmedForm.current_rev,
-      file_path: `/files/${trimmedForm.fileName}`,
-      pdf_path: trimmedForm.fileExt === 'pdf' ? `/files/${trimmedForm.fileName}` : null,
-      file_ext: trimmedForm.fileExt,
-      file_size: 100000,
-      is_current: true,
-      uploaded_by: currentUser.id,
-      uploaded_at: toDateStr(),
-    }]);
-    setShowUploadModal(false);
-    setUploadForm(INITIAL_FORM);
-    setDocNumberSuffix('');
+    try {
+      const docId = `d${Date.now()}`;
+      let filePath = `/files/${trimmedForm.fileName}`;
+      if (uploadFileObj) {
+        const storagePath = `documents/${docId}/${Date.now()}_${trimmedForm.fileName}`;
+        filePath = await fileService.uploadFile(storagePath, uploadFileObj);
+      }
+      const newDoc = {
+        id: docId,
+        doc_number: trimmedForm.doc_number,
+        doc_name: trimmedForm.doc_name,
+        doc_type: trimmedForm.doc_type,
+        department: trimmedForm.department,
+        status: 'REVIEW' as const,
+        current_rev: trimmedForm.current_rev,
+        created_by: currentUser.id,
+        created_at: toDateStr(),
+        updated_at: trimmedForm.revised_at.trim() || toDateStr(),
+      };
+      await documentService.create(newDoc);
+      const newFile = {
+        id: `f${Date.now()}`,
+        document_id: docId,
+        rev_number: trimmedForm.current_rev,
+        file_path: filePath,
+        pdf_path: trimmedForm.fileExt === 'pdf' ? filePath : null,
+        file_ext: trimmedForm.fileExt,
+        file_size: uploadFileObj?.size ?? 100000,
+        is_current: true,
+        uploaded_by: currentUser.id,
+        uploaded_at: toDateStr(),
+      };
+      await fileService.create(newFile);
+      const sorted = [...documents, newDoc].sort((a, b) => a.doc_number.localeCompare(b.doc_number));
+      setDocuments(sorted);
+      setSortKey('doc_number');
+      setSortDir('asc');
+      setDocumentFiles([...documentFiles, newFile]);
+      setShowUploadModal(false);
+      setUploadForm(INITIAL_FORM);
+      setDocNumberSuffix('');
+      setUploadFileObj(null);
+    } catch {
+      setUploadError('문서 등록 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
+    }
   };
 
-  const handleDelete = (e: React.MouseEvent, doc: Document) => {
+  const handleDelete = async (e: React.MouseEvent, doc: Document) => {
     e.stopPropagation();
     if (!window.confirm(`"${doc.doc_number} ${doc.doc_name}" 문서를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
-    setDocuments(documents.filter(d => d.id !== doc.id));
-    setDocumentFiles(documentFiles.filter(f => f.document_id !== doc.id));
-    setDocumentHistories(documentHistories.filter(h => h.document_id !== doc.id));
-    setDocumentRelations(documentRelations.filter(r => r.source_doc_id !== doc.id && r.target_doc_id !== doc.id));
+    try {
+      // Delete related files from storage and DB
+      const relatedFiles = documentFiles.filter(f => f.document_id === doc.id);
+      for (const f of relatedFiles) {
+        if (f.file_path.includes('supabase')) await fileService.deleteFromStorage(f.file_path);
+        await fileService.delete(f.id);
+      }
+      // Delete histories
+      const relatedHistories = documentHistories.filter(h => h.document_id === doc.id);
+      for (const h of relatedHistories) {
+        await historyService.delete(h.id);
+      }
+      // Delete relations
+      const relatedRels = documentRelations.filter(r => r.source_doc_id === doc.id || r.target_doc_id === doc.id);
+      for (const r of relatedRels) {
+        await relationService.delete(r.id);
+      }
+      await documentService.delete(doc.id);
+      setDocuments(documents.filter(d => d.id !== doc.id));
+      setDocumentFiles(documentFiles.filter(f => f.document_id !== doc.id));
+      setDocumentHistories(documentHistories.filter(h => h.document_id !== doc.id));
+      setDocumentRelations(documentRelations.filter(r => r.source_doc_id !== doc.id && r.target_doc_id !== doc.id));
+    } catch {
+      alert('문서 삭제 중 오류가 발생했습니다.');
+    }
   };
 
   const hasFilters = keyword || filterType.length || filterStatus.length || filterHasInstruction || filterDept || dateFrom || dateTo;
@@ -308,7 +348,7 @@ export const DocumentListPage = () => {
       </div>
 
       {/* Upload Modal */}
-      <Modal isOpen={showUploadModal} onClose={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); setDocNumberSuffix(''); }} title="신규 문서 등록" size="lg">
+      <Modal isOpen={showUploadModal} onClose={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); setDocNumberSuffix(''); setUploadFileObj(null); }} title="신규 문서 등록" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -396,7 +436,7 @@ export const DocumentListPage = () => {
               {uploadForm.fileName ? (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700">{uploadForm.fileName}</span>
-                  <button onClick={() => setUploadForm(f => ({ ...f, fileName: '', fileExt: 'pdf' }))} className="text-red-400 hover:text-red-600"><X size={16} /></button>
+                  <button onClick={() => { setUploadForm(f => ({ ...f, fileName: '', fileExt: 'pdf' })); setUploadFileObj(null); }} className="text-red-400 hover:text-red-600"><X size={16} /></button>
                 </div>
               ) : (
                 <label className="cursor-pointer">
@@ -406,12 +446,13 @@ export const DocumentListPage = () => {
                     type="file"
                     accept="*/*"
                     className="hidden"
-                    onChange={e => {
+                    onChange={async e => {
                       const file = e.target.files?.[0];
                       if (file) {
                         if (file.size > MAX_FILE_SIZE_BYTES) { alert(`파일 크기는 ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB 이하여야 합니다.`); return; }
                         const ext = file.name.split('.').pop() ?? 'pdf';
                         setUploadForm(f => ({ ...f, fileName: file.name, fileExt: ext }));
+                        setUploadFileObj(file);
                       }
                     }}
                   />
@@ -421,7 +462,7 @@ export const DocumentListPage = () => {
           </div>
           {uploadError && <p className="text-red-500 text-sm">{uploadError}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); setDocNumberSuffix(''); }} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+            <button onClick={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); setDocNumberSuffix(''); setUploadFileObj(null); }} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
             <button onClick={handleUpload} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">등록</button>
           </div>
         </div>

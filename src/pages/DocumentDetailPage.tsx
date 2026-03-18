@@ -11,6 +11,10 @@ import { Modal } from '../components/Modal';
 import type { DocumentHistory } from '../types';
 import { toDateStr } from '../utils/date';
 import { isWebViewSupported } from '../config/fileTypes';
+import { documentService } from '../services/documentService';
+import { fileService } from '../services/fileService';
+import { historyService } from '../services/historyService';
+import { relationService } from '../services/relationService';
 
 const DOC_TYPE_LABEL: Record<string, string> = { QI: '지침서', QP: '절차서', QM: '매뉴얼' };
 
@@ -72,6 +76,10 @@ export const DocumentDetailPage = () => {
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [newFolder, setNewFolder] = useState<Omit<FolderItem, 'id'>>({ ...EMPTY_FOLDER });
 
+  const [newVerFileObj, setNewVerFileObj] = useState<File | null>(null);
+  const [formFileObj, setFormFileObj] = useState<File | null>(null);
+  const [instructionFileObj, setInstructionFileObj] = useState<File | null>(null);
+
   // Instruction (지침서) upload
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [instructionFileName, setInstructionFileName] = useState('');
@@ -101,9 +109,13 @@ export const DocumentDetailPage = () => {
   const canUploadForm = isAdminOrAuthor || formFolders.some(f => currentUser.department === f.department);
   const canDeleteForm = isAdminOrAuthor || formFolders.some(f => currentUser.department === f.department);
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!window.confirm('승인으로 변경하시겠습니까?')) return;
-    setDocuments(documents.map(d => d.id === doc.id ? { ...d, status: 'APPROVED', updated_at: toDateStr() } : d));
+    const updated = { status: 'APPROVED' as const, updated_at: toDateStr() };
+    try {
+      await documentService.update(doc.id, updated);
+      setDocuments(documents.map(d => d.id === doc.id ? { ...d, ...updated } : d));
+    } catch { alert('상태 변경 중 오류가 발생했습니다.'); }
   };
   const currentFile = documentFiles.find(f => f.document_id === doc.id && f.is_current);
   const allFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'form').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
@@ -121,29 +133,53 @@ export const DocumentDetailPage = () => {
     .map(r => r.source_doc_id === doc.id ? r.target_doc_id : r.source_doc_id);
   const relatedDocs = documents.filter(d => relatedDocIds.includes(d.id));
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!currentFile) return;
-    alert(`다운로드: ${doc.doc_number}_${doc.doc_name}_${doc.current_rev}.${currentFile.file_ext}\n(목업 - 실제 파일 없음)`);
+    try {
+      if (currentFile.file_path.includes('supabase')) {
+        const url = await fileService.getSignedUrl(currentFile.file_path);
+        window.open(url, '_blank');
+      } else {
+        alert(`다운로드: ${doc.doc_number}_${doc.doc_name}_${doc.current_rev}.${currentFile.file_ext}`);
+      }
+    } catch { alert('파일 다운로드 중 오류가 발생했습니다.'); }
   };
 
-  const handleNewVersion = () => {
+  const handleNewVersion = async () => {
     if (!newVerRev || !newVerFile) { alert('Rev 번호와 파일을 입력하세요.'); return; }
-    setDocumentFiles(documentFiles.map(f => f.document_id === doc.id ? { ...f, is_current: false } : f).concat({
-      id: `f${Date.now()}`,
-      document_id: doc.id,
-      rev_number: newVerRev,
-      file_path: `/files/${newVerFile}`,
-      pdf_path: newVerExt === 'pdf' ? `/files/${newVerFile}` : null,
-      file_ext: newVerExt,
-      file_size: 120000,
-      is_current: true,
-      uploaded_by: currentUser.id,
-      uploaded_at: toDateStr(),
-    }));
-    setDocuments(documents.map(d => d.id === doc.id ? { ...d, current_rev: newVerRev, status: 'REVIEW', updated_at: toDateStr() } : d));
-    setShowNewVersionModal(false);
-    setNewVerRev('');
-    setNewVerFile('');
+    try {
+      let filePath = `/files/${newVerFile}`;
+      if (newVerFileObj) {
+        const storagePath = `documents/${doc.id}/${Date.now()}_${newVerFile}`;
+        filePath = await fileService.uploadFile(storagePath, newVerFileObj);
+      }
+      // Mark old files as not current
+      const currentFiles = documentFiles.filter(f => f.document_id === doc.id && f.is_current);
+      for (const cf of currentFiles) {
+        await fileService.update(cf.id, { is_current: false });
+      }
+      const newFile = {
+        id: `f${Date.now()}`,
+        document_id: doc.id,
+        rev_number: newVerRev,
+        file_path: filePath,
+        pdf_path: newVerExt === 'pdf' ? filePath : null,
+        file_ext: newVerExt,
+        file_size: newVerFileObj?.size ?? 120000,
+        is_current: true,
+        uploaded_by: currentUser.id,
+        uploaded_at: toDateStr(),
+      };
+      await fileService.create(newFile);
+      const docUpdates = { current_rev: newVerRev, status: 'REVIEW' as const, updated_at: toDateStr() };
+      await documentService.update(doc.id, docUpdates);
+      setDocumentFiles(documentFiles.map(f => f.document_id === doc.id ? { ...f, is_current: false } : f).concat(newFile));
+      setDocuments(documents.map(d => d.id === doc.id ? { ...d, ...docUpdates } : d));
+      setShowNewVersionModal(false);
+      setNewVerRev('');
+      setNewVerFile('');
+      setNewVerFileObj(null);
+    } catch { alert('새 버전 업로드 중 오류가 발생했습니다.'); }
   };
 
   const openHistoryCreate = () => {
@@ -158,62 +194,85 @@ export const DocumentDetailPage = () => {
     setShowHistoryModal(true);
   };
 
-  const saveHistory = () => {
+  const saveHistory = async () => {
     if (!historyForm.revision_date || !historyForm.rev_number || !historyForm.change_summary) { alert('필수 항목을 입력하세요.'); return; }
-    if (editingHistory) {
-      setDocumentHistories(documentHistories.map(h => h.id === editingHistory.id ? { ...h, ...historyForm, updated_by: currentUser.id, updated_at: new Date().toISOString() } : h));
-    } else {
-      setDocumentHistories([...documentHistories, {
-        id: `h${Date.now()}`,
-        document_id: doc.id,
-        ...historyForm,
-        recorded_by: currentUser.id,
-        recorded_at: new Date().toISOString(),
-      }]);
-    }
-    setShowHistoryModal(false);
+    try {
+      if (editingHistory) {
+        const updates = { ...historyForm, updated_by: currentUser.id, updated_at: new Date().toISOString() };
+        await historyService.update(editingHistory.id, updates);
+        setDocumentHistories(documentHistories.map(h => h.id === editingHistory.id ? { ...h, ...updates } : h));
+      } else {
+        const newH = {
+          id: `h${Date.now()}`,
+          document_id: doc.id,
+          ...historyForm,
+          recorded_by: currentUser.id,
+          recorded_at: new Date().toISOString(),
+        };
+        await historyService.create(newH);
+        setDocumentHistories([...documentHistories, newH]);
+      }
+      setShowHistoryModal(false);
+    } catch { alert('변경이력 저장 중 오류가 발생했습니다.'); }
   };
 
-  const deleteHistory = (hid: string) => {
+  const deleteHistory = async (hid: string) => {
     if (!canDelete) return;
     if (confirm('이 변경이력을 삭제하시겠습니까?')) {
-      setDocumentHistories(documentHistories.filter(h => h.id !== hid));
+      try {
+        await historyService.delete(hid);
+        setDocumentHistories(documentHistories.filter(h => h.id !== hid));
+      } catch { alert('변경이력 삭제 중 오류가 발생했습니다.'); }
     }
   };
 
-  const removeRelation = (targetDocId: string) => {
-    setDocumentRelations(documentRelations.filter(r =>
-      !(r.source_doc_id === doc.id && r.target_doc_id === targetDocId) &&
-      !(r.target_doc_id === doc.id && r.source_doc_id === targetDocId)
-    ));
+  const removeRelation = async (targetDocId: string) => {
+    const rel = documentRelations.find(r =>
+      (r.source_doc_id === doc.id && r.target_doc_id === targetDocId) ||
+      (r.target_doc_id === doc.id && r.source_doc_id === targetDocId)
+    );
+    if (!rel) return;
+    try {
+      await relationService.delete(rel.id);
+      setDocumentRelations(documentRelations.filter(r => r.id !== rel.id));
+    } catch { alert('연관 문서 삭제 중 오류가 발생했습니다.'); }
   };
 
-  const resetFormModal = () => { setShowFormModal(false); setFormFileName(''); setFormDocNumber(''); setFormDocName(''); setFormDepartment(''); setFormFolder(''); };
-  const handleFormUpload = () => {
+  const resetFormModal = () => { setShowFormModal(false); setFormFileName(''); setFormDocNumber(''); setFormDocName(''); setFormDepartment(''); setFormFolder(''); setFormFileObj(null); };
+  const handleFormUpload = async () => {
     if (!formFolder.trim()) { alert('폴더를 선택하세요.'); return; }
     if (!canUploadToFolder(formFolder.trim())) { alert('해당 폴더에 업로드 권한이 없습니다.'); return; }
     if (!formDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
     if (!formDocName.trim()) { alert('문서명을 입력하세요.'); return; }
     if (!formFileName) { alert('파일을 선택하세요.'); return; }
-    const folder = formFolder.trim();
-    setDocumentFiles([...documentFiles, {
-      id: `f${Date.now()}`,
-      document_id: doc.id,
-      rev_number: doc.current_rev,
-      file_path: `/files/${formFileName}`,
-      pdf_path: formFileExt === 'pdf' ? `/files/${formFileName}` : null,
-      file_ext: formFileExt,
-      file_size: 80000,
-      is_current: false,
-      uploaded_by: currentUser.id,
-      uploaded_at: toDateStr(),
-      file_category: 'form',
-      attach_doc_number: formDocNumber.trim(),
-      attach_doc_name: formDocName.trim(),
-      attach_department: formDepartment.trim(),
-      form_folder: folder,
-    }]);
-    resetFormModal();
+    try {
+      let filePath = `/files/${formFileName}`;
+      if (formFileObj) {
+        const storagePath = `forms/${doc.id}/${formFolder.trim()}/${Date.now()}_${formFileName}`;
+        filePath = await fileService.uploadFile(storagePath, formFileObj);
+      }
+      const newFile = {
+        id: `f${Date.now()}`,
+        document_id: doc.id,
+        rev_number: doc.current_rev,
+        file_path: filePath,
+        pdf_path: formFileExt === 'pdf' ? filePath : null,
+        file_ext: formFileExt,
+        file_size: formFileObj?.size ?? 80000,
+        is_current: false,
+        uploaded_by: currentUser.id,
+        uploaded_at: toDateStr(),
+        file_category: 'form' as const,
+        attach_doc_number: formDocNumber.trim(),
+        attach_doc_name: formDocName.trim(),
+        attach_department: formDepartment.trim(),
+        form_folder: formFolder.trim(),
+      };
+      await fileService.create(newFile);
+      setDocumentFiles([...documentFiles, newFile]);
+      resetFormModal();
+      setFormFileObj(null);
+    } catch { alert('양식 업로드 중 오류가 발생했습니다.'); }
   };
 
   const toggleFolder = (name: string) => {
@@ -236,41 +295,55 @@ export const DocumentDetailPage = () => {
     setNewFolder({ ...EMPTY_FOLDER });
   };
 
-  const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); setInstructionUploadDate(''); };
-  const handleInstructionUpload = () => {
+  const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); setInstructionUploadDate(''); setInstructionFileObj(null); };
+  const handleInstructionUpload = async () => {
     if (!instructionDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
     if (!instructionDocName.trim()) { alert('문서명을 입력하세요.'); return; }
     if (!instructionFileName) { alert('파일을 선택하세요.'); return; }
-    setDocumentFiles([...documentFiles, {
-      id: `f${Date.now()}`,
-      document_id: doc.id,
-      rev_number: doc.current_rev,
-      file_path: `/files/${instructionFileName}`,
-      pdf_path: instructionFileExt === 'pdf' ? `/files/${instructionFileName}` : null,
-      file_ext: instructionFileExt,
-      file_size: 80000,
-      is_current: false,
-      uploaded_by: currentUser.id,
-      uploaded_at: instructionUploadDate.trim() || toDateStr(),
-      file_category: 'instruction',
-      attach_doc_number: instructionDocNumber.trim(),
-      attach_doc_name: instructionDocName.trim(),
-      attach_rev: instructionRev.trim(),
-    }]);
-    resetInstructionModal();
+    try {
+      let filePath = `/files/${instructionFileName}`;
+      if (instructionFileObj) {
+        const storagePath = `instructions/${doc.id}/${Date.now()}_${instructionFileName}`;
+        filePath = await fileService.uploadFile(storagePath, instructionFileObj);
+      }
+      const newFile = {
+        id: `f${Date.now()}`,
+        document_id: doc.id,
+        rev_number: doc.current_rev,
+        file_path: filePath,
+        pdf_path: instructionFileExt === 'pdf' ? filePath : null,
+        file_ext: instructionFileExt,
+        file_size: instructionFileObj?.size ?? 80000,
+        is_current: false,
+        uploaded_by: currentUser.id,
+        uploaded_at: instructionUploadDate.trim() || toDateStr(),
+        file_category: 'instruction' as const,
+        attach_doc_number: instructionDocNumber.trim(),
+        attach_doc_name: instructionDocName.trim(),
+        attach_rev: instructionRev.trim(),
+      };
+      await fileService.create(newFile);
+      setDocumentFiles([...documentFiles, newFile]);
+      resetInstructionModal();
+      setInstructionFileObj(null);
+    } catch { alert('지침서 업로드 중 오류가 발생했습니다.'); }
   };
 
-  const addRelation = (targetDocId: string) => {
+  const addRelation = async (targetDocId: string) => {
     if (relatedDocIds.includes(targetDocId)) return;
-    setDocumentRelations([...documentRelations, {
+    const newRel = {
       id: `r${Date.now()}`,
       source_doc_id: doc.id,
       target_doc_id: targetDocId,
       created_by: currentUser.id,
       created_at: toDateStr(),
-    }]);
-    setShowRelationModal(false);
-    setRelSearch('');
+    };
+    try {
+      await relationService.create(newRel);
+      setDocumentRelations([...documentRelations, newRel]);
+      setShowRelationModal(false);
+      setRelSearch('');
+    } catch { alert('연관 문서 추가 중 오류가 발생했습니다.'); }
   };
 
   const webViewSupported = currentFile && isWebViewSupported(currentFile.file_ext);
@@ -493,7 +566,7 @@ export const DocumentDetailPage = () => {
                         </td>
                         {canWrite && (
                           <td className="px-4 py-3.5 text-center">
-                            <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                            <button onClick={async () => { try { await fileService.delete(f.id); if (f.file_path.includes('supabase')) await fileService.deleteFromStorage(f.file_path); setDocumentFiles(documentFiles.filter(df => df.id !== f.id)); } catch { alert('파일 삭제 중 오류가 발생했습니다.'); } }} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
                               <Trash2 size={14} />
                             </button>
                           </td>
@@ -623,7 +696,7 @@ export const DocumentDetailPage = () => {
                             </td>
                             {canDeleteForm && (
                               <td className="px-4 py-3 text-center">
-                                <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                                <button onClick={async () => { try { await fileService.delete(f.id); if (f.file_path.includes('supabase')) await fileService.deleteFromStorage(f.file_path); setDocumentFiles(documentFiles.filter(df => df.id !== f.id)); } catch { alert('파일 삭제 중 오류가 발생했습니다.'); } }} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
                                   <Trash2 size={14} />
                                 </button>
                               </td>
@@ -652,7 +725,7 @@ export const DocumentDetailPage = () => {
                       </td>
                       {canDeleteForm && (
                         <td className="px-4 py-3.5 text-center">
-                          <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                          <button onClick={async () => { try { await fileService.delete(f.id); if (f.file_path.includes('supabase')) await fileService.deleteFromStorage(f.file_path); setDocumentFiles(documentFiles.filter(df => df.id !== f.id)); } catch { alert('파일 삭제 중 오류가 발생했습니다.'); } }} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
                             <Trash2 size={14} />
                           </button>
                         </td>
@@ -814,7 +887,7 @@ export const DocumentDetailPage = () => {
                     className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0];
-                      if (file) { setNewVerFile(file.name); setNewVerExt(file.name.split('.').pop() ?? 'pdf'); }
+                      if (file) { setNewVerFile(file.name); setNewVerExt(file.name.split('.').pop() ?? 'pdf'); setNewVerFileObj(file); }
                     }}
                   />
                 </label>
@@ -913,7 +986,7 @@ export const DocumentDetailPage = () => {
                 <label className="cursor-pointer">
                   <p className="text-sm text-gray-500">파일을 선택하세요</p>
                   <p className="text-xs text-gray-400 mt-1">모든 파일 형식 지원</p>
-                  <input type="file" accept="*/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setFormFileName(file.name); setFormFileExt(file.name.split('.').pop() ?? 'pdf'); } }} />
+                  <input type="file" accept="*/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setFormFileName(file.name); setFormFileExt(file.name.split('.').pop() ?? 'pdf'); setFormFileObj(file); } }} />
                 </label>
               )}
             </div>
@@ -989,7 +1062,7 @@ export const DocumentDetailPage = () => {
                 <label className="cursor-pointer">
                   <p className="text-sm text-gray-500">파일을 선택하세요</p>
                   <p className="text-xs text-gray-400 mt-1">모든 파일 형식 지원</p>
-                  <input type="file" accept="*/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setInstructionFileName(file.name); setInstructionFileExt(file.name.split('.').pop() ?? 'pdf'); } }} />
+                  <input type="file" accept="*/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setInstructionFileName(file.name); setInstructionFileExt(file.name.split('.').pop() ?? 'pdf'); setInstructionFileObj(file); } }} />
                 </label>
               )}
             </div>
