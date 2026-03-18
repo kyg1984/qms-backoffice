@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, FileText, History, Link2, Info,
@@ -522,10 +522,9 @@ export const DocumentDetailPage = () => {
                     const folderFiles = allFiles.filter(f => f.form_folder === folder);
                     const isExpanded = expandedFolders.has(folder);
                     return (
-                      <>
+                      <React.Fragment key={`group-${folder}`}>
                         {/* 폴더 행 */}
                         <tr
-                          key={`folder-${folder}`}
                           className="bg-gray-50 hover:bg-gray-100 cursor-pointer select-none transition-colors"
                           onClick={() => toggleFolder(folder)}
                         >
@@ -591,7 +590,7 @@ export const DocumentDetailPage = () => {
                             )}
                           </tr>
                         ))}
-                      </>
+                      </React.Fragment>
                     );
                   })}
 
