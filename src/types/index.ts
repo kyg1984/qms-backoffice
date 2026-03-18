@@ -38,6 +38,9 @@ export interface DocumentFile {
   uploaded_by: string;
   uploaded_at: string;
   file_category?: 'form' | 'instruction';
+  attach_doc_number?: string;
+  attach_doc_name?: string;
+  attach_rev?: string;
 }
 
 export interface DocumentHistory {

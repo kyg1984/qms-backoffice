@@ -49,11 +49,17 @@ export const DocumentDetailPage = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [formFileName, setFormFileName] = useState('');
   const [formFileExt, setFormFileExt] = useState('pdf');
+  const [formDocNumber, setFormDocNumber] = useState('');
+  const [formDocName, setFormDocName] = useState('');
+  const [formRev, setFormRev] = useState('');
 
   // Instruction (지침서) upload
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [instructionFileName, setInstructionFileName] = useState('');
   const [instructionFileExt, setInstructionFileExt] = useState('pdf');
+  const [instructionDocNumber, setInstructionDocNumber] = useState('');
+  const [instructionDocName, setInstructionDocName] = useState('');
+  const [instructionRev, setInstructionRev] = useState('');
 
   if (!doc) return (
     <div className="p-8 text-center">
@@ -148,7 +154,10 @@ export const DocumentDetailPage = () => {
     ));
   };
 
+  const resetFormModal = () => { setShowFormModal(false); setFormFileName(''); setFormDocNumber(''); setFormDocName(''); setFormRev(''); };
   const handleFormUpload = () => {
+    if (!formDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
+    if (!formDocName.trim()) { alert('문서명을 입력하세요.'); return; }
     if (!formFileName) { alert('파일을 선택하세요.'); return; }
     setDocumentFiles([...documentFiles, {
       id: `f${Date.now()}`,
@@ -162,12 +171,17 @@ export const DocumentDetailPage = () => {
       uploaded_by: currentUser.id,
       uploaded_at: toDateStr(),
       file_category: 'form',
+      attach_doc_number: formDocNumber.trim(),
+      attach_doc_name: formDocName.trim(),
+      attach_rev: formRev.trim(),
     }]);
-    setShowFormModal(false);
-    setFormFileName('');
+    resetFormModal();
   };
 
+  const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); };
   const handleInstructionUpload = () => {
+    if (!instructionDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
+    if (!instructionDocName.trim()) { alert('문서명을 입력하세요.'); return; }
     if (!instructionFileName) { alert('파일을 선택하세요.'); return; }
     setDocumentFiles([...documentFiles, {
       id: `f${Date.now()}`,
@@ -181,9 +195,11 @@ export const DocumentDetailPage = () => {
       uploaded_by: currentUser.id,
       uploaded_at: toDateStr(),
       file_category: 'instruction',
+      attach_doc_number: instructionDocNumber.trim(),
+      attach_doc_name: instructionDocName.trim(),
+      attach_rev: instructionRev.trim(),
     }]);
-    setShowInstructionModal(false);
-    setInstructionFileName('');
+    resetInstructionModal();
   };
 
   const addRelation = (targetDocId: string) => {
@@ -389,10 +405,10 @@ export const DocumentDetailPage = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">파일명</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">형식</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">크기</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">문서번호</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">문서명</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Rev</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일자</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
                     {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
                   </tr>
@@ -403,14 +419,14 @@ export const DocumentDetailPage = () => {
                   ) : (
                     instructionFiles.map((f) => (
                       <tr key={f.id} className="hover:bg-blue-50 transition-colors">
-                        <td className="px-6 py-3.5">
+                        <td className="px-6 py-3.5 font-mono text-sm font-semibold text-blue-600">{f.attach_doc_number || '-'}</td>
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
                             <FileText size={14} className="text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-800 font-medium">{f.file_path.split('/').pop()}</span>
+                            <span className="text-sm text-gray-800 font-medium">{f.attach_doc_name || f.file_path.split('/').pop()}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5"><span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">.{f.file_ext}</span></td>
-                        <td className="px-4 py-3.5 text-sm text-gray-500">{(f.file_size / 1024).toFixed(0)}KB</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600">{f.attach_rev || '-'}</td>
                         <td className="px-4 py-3.5 text-sm text-gray-500">{f.uploaded_at}</td>
                         <td className="px-4 py-3.5 text-center">
                           <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors mx-auto">
@@ -436,20 +452,18 @@ export const DocumentDetailPage = () => {
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">양식 <span className="text-sm font-normal text-gray-400 ml-1">({allFiles.length})</span></h3>
-              {canWrite && (
-                <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                  <Plus size={14} /> 양식 추가
-                </button>
-              )}
+              <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={14} /> 양식 추가
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">파일명</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">형식</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">크기</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">문서번호</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">문서명</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Rev</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일자</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
                     {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
                   </tr>
@@ -460,14 +474,14 @@ export const DocumentDetailPage = () => {
                   ) : (
                     allFiles.map((f) => (
                       <tr key={f.id} className="hover:bg-blue-50 transition-colors">
-                        <td className="px-6 py-3.5">
+                        <td className="px-6 py-3.5 font-mono text-sm font-semibold text-blue-600">{f.attach_doc_number || '-'}</td>
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
                             <FileText size={14} className="text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-800 font-medium">{f.file_path.split('/').pop()}</span>
+                            <span className="text-sm text-gray-800 font-medium">{f.attach_doc_name || f.file_path.split('/').pop()}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5"><span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">.{f.file_ext}</span></td>
-                        <td className="px-4 py-3.5 text-sm text-gray-500">{(f.file_size / 1024).toFixed(0)}KB</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-600">{f.attach_rev || '-'}</td>
                         <td className="px-4 py-3.5 text-sm text-gray-500">{f.uploaded_at}</td>
                         <td className="px-4 py-3.5 text-center">
                           <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors mx-auto">
@@ -690,8 +704,22 @@ export const DocumentDetailPage = () => {
       </Modal>
 
       {/* Form (양식) Upload Modal */}
-      <Modal isOpen={showFormModal} onClose={() => { setShowFormModal(false); setFormFileName(''); }} title="양식 추가" size="md">
+      <Modal isOpen={showFormModal} onClose={resetFormModal} title="양식 추가" size="md">
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">문서번호 <span className="text-red-500">*</span></label>
+              <input type="text" value={formDocNumber} onChange={e => setFormDocNumber(e.target.value)} placeholder="예) EXO-QF-001" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rev</label>
+              <input type="text" value={formRev} onChange={e => setFormRev(e.target.value)} placeholder="예) Rev.00" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">문서명 <span className="text-red-500">*</span></label>
+            <input type="text" value={formDocName} onChange={e => setFormDocName(e.target.value)} placeholder="양식 문서명을 입력하세요" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">파일 첨부 <span className="text-red-500">*</span></label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
@@ -704,29 +732,35 @@ export const DocumentDetailPage = () => {
                 <label className="cursor-pointer">
                   <p className="text-sm text-gray-500">파일을 선택하세요</p>
                   <p className="text-xs text-gray-400 mt-1">모든 파일 형식 지원</p>
-                  <input
-                    type="file"
-                    accept="*/*"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) { setFormFileName(file.name); setFormFileExt(file.name.split('.').pop() ?? 'pdf'); }
-                    }}
-                  />
+                  <input type="file" accept="*/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setFormFileName(file.name); setFormFileExt(file.name.split('.').pop() ?? 'pdf'); } }} />
                 </label>
               )}
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { setShowFormModal(false); setFormFileName(''); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+            <button onClick={resetFormModal} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
             <button onClick={handleFormUpload} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">추가</button>
           </div>
         </div>
       </Modal>
 
       {/* Instruction (지침서) Upload Modal */}
-      <Modal isOpen={showInstructionModal} onClose={() => { setShowInstructionModal(false); setInstructionFileName(''); }} title="지침서 추가" size="md">
+      <Modal isOpen={showInstructionModal} onClose={resetInstructionModal} title="지침서 추가" size="md">
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">문서번호 <span className="text-red-500">*</span></label>
+              <input type="text" value={instructionDocNumber} onChange={e => setInstructionDocNumber(e.target.value)} placeholder="예) EXO-QI-001" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rev</label>
+              <input type="text" value={instructionRev} onChange={e => setInstructionRev(e.target.value)} placeholder="예) Rev.00" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">문서명 <span className="text-red-500">*</span></label>
+            <input type="text" value={instructionDocName} onChange={e => setInstructionDocName(e.target.value)} placeholder="지침서 문서명을 입력하세요" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">파일 첨부 <span className="text-red-500">*</span></label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
@@ -739,21 +773,13 @@ export const DocumentDetailPage = () => {
                 <label className="cursor-pointer">
                   <p className="text-sm text-gray-500">파일을 선택하세요</p>
                   <p className="text-xs text-gray-400 mt-1">모든 파일 형식 지원</p>
-                  <input
-                    type="file"
-                    accept="*/*"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) { setInstructionFileName(file.name); setInstructionFileExt(file.name.split('.').pop() ?? 'pdf'); }
-                    }}
-                  />
+                  <input type="file" accept="*/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setInstructionFileName(file.name); setInstructionFileExt(file.name.split('.').pop() ?? 'pdf'); } }} />
                 </label>
               )}
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { setShowInstructionModal(false); setInstructionFileName(''); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+            <button onClick={resetInstructionModal} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
             <button onClick={handleInstructionUpload} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">추가</button>
           </div>
         </div>
