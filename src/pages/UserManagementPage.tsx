@@ -5,6 +5,7 @@ import { Modal } from '../components/Modal';
 import type { UserRole, User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { toDateStr, isValidEmail } from '../utils/date';
+import { useMemo } from 'react';
 
 const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '관리자', AUTHOR: '작성자', VIEWER: '열람자' };
 const ROLE_COLOR: Record<UserRole, string> = {
@@ -13,11 +14,12 @@ const ROLE_COLOR: Record<UserRole, string> = {
   VIEWER: 'bg-gray-100 text-gray-600 border border-gray-200',
 };
 
-const INIT_FORM = { name: '', email: '', password: '', role: 'VIEWER' as UserRole };
+const INIT_FORM = { name: '', email: '', password: '', role: 'VIEWER' as UserRole, department: '' };
 
 export const UserManagementPage = () => {
-  const { users, setUsers, currentUser } = useApp();
+  const { users, setUsers, currentUser, documents } = useApp();
   const navigate = useNavigate();
+  const departments = useMemo(() => [...new Set(documents.map(d => d.department))], [documents]);
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState(INIT_FORM);
@@ -52,7 +54,7 @@ export const UserManagementPage = () => {
 
   const openEdit = (u: User) => {
     setEditUser(u);
-    setForm({ name: u.name, email: u.email, password: '', role: u.role });
+    setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department ?? '' });
     setFormError('');
     setShowFormPw(false);
     setShowModal(true);
@@ -75,6 +77,7 @@ export const UserManagementPage = () => {
         ...u,
         name: form.name,
         role: form.role,
+        department: form.department.trim() || undefined,
         ...(form.password ? { password: form.password } : {}),
         updated_at: toDateStr(),
       } : u));
@@ -85,6 +88,7 @@ export const UserManagementPage = () => {
         email: form.email,
         password: form.password,
         role: form.role,
+        department: form.department.trim() || undefined,
         is_active: true,
         created_at: toDateStr(),
         updated_at: toDateStr(),
@@ -134,14 +138,14 @@ export const UserManagementPage = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              {['이름', '이메일', '역할', '상태', '생성일', '최종 수정일', ''].map(h => (
+              {['이름', '이메일', '부서', '역할', '상태', '생성일', '최종 수정일', ''].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">조건에 맞는 사용자가 없습니다.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">조건에 맞는 사용자가 없습니다.</td></tr>
             ) : (
               filtered.map(u => (
                 <tr key={u.id} className={`hover:bg-gray-50 ${!u.is_active ? 'opacity-60' : ''}`}>
@@ -153,6 +157,7 @@ export const UserManagementPage = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3.5 text-gray-600">{u.email}</td>
+                  <td className="px-4 py-3.5 text-gray-600">{u.department || <span className="text-gray-300 text-xs">미지정</span>}</td>
                   <td className="px-4 py-3.5"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${ROLE_COLOR[u.role]}`}>{ROLE_LABEL[u.role]}</span></td>
                   <td className="px-4 py-3.5">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${u.is_active ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
@@ -209,13 +214,29 @@ export const UserManagementPage = () => {
               </button>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">역할 <span className="text-red-500">*</span></label>
-            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="ADMIN">관리자 (Admin)</option>
-              <option value="AUTHOR">작성자 (Author)</option>
-              <option value="VIEWER">열람자 (Viewer)</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">역할 <span className="text-red-500">*</span></label>
+              <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ADMIN">관리자 (Admin)</option>
+                <option value="AUTHOR">작성자 (Author)</option>
+                <option value="VIEWER">열람자 (Viewer)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+              <input
+                type="text"
+                list="user-dept-list"
+                value={form.department}
+                onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                placeholder="부서 선택 또는 입력"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <datalist id="user-dept-list">
+                {departments.map(d => <option key={d} value={d} />)}
+              </datalist>
+            </div>
           </div>
           {formError && <p className="text-red-500 text-sm">{formError}</p>}
           <div className="flex justify-end gap-3 pt-2">

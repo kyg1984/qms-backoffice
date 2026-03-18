@@ -8,7 +8,7 @@ import type {
 } from '../types';
 
 export const mockUsers: User[] = [
-  { id: 'u1', name: '관리자', email: 'admin@cosmo-robotics.com', password: 'admin123', role: 'ADMIN', is_active: true, created_at: '2024-01-01', updated_at: '2024-01-01' },
+  { id: 'u1', name: '관리자', email: 'admin@cosmo-robotics.com', password: 'admin123', role: 'ADMIN', department: '품질팀', is_active: true, created_at: '2024-01-01', updated_at: '2024-01-01' },
 ];
 
 export const mockDocuments: Document[] = [

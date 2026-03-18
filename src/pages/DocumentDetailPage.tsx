@@ -72,6 +72,8 @@ export const DocumentDetailPage = () => {
   const canWrite = currentUser.role !== 'VIEWER';
   const canApprove = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
   const canDelete = currentUser.role === 'ADMIN';
+  // 양식 업로드: ADMIN·AUTHOR 또는 동일 부서 사용자
+  const canUploadForm = canWrite || currentUser.department === doc.department;
 
   const handleApprove = () => {
     if (!window.confirm('승인으로 변경하시겠습니까?')) return;
@@ -453,9 +455,11 @@ export const DocumentDetailPage = () => {
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">양식 <span className="text-sm font-normal text-gray-400 ml-1">({allFiles.length})</span></h3>
-              <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                <Plus size={14} /> 양식 추가
-              </button>
+              {canUploadForm && (
+                <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                  <Plus size={14} /> 양식 추가
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

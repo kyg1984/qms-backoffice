@@ -8,6 +8,7 @@ export interface User {
   email: string;
   password: string;
   role: UserRole;
+  department?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
