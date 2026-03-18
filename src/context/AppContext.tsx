@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type {
   User,
   Document,
@@ -15,6 +15,17 @@ import {
   mockDocumentRelations,
   getCurrentUser,
 } from '../data/mockData';
+
+const LS_ACCESS_REQUESTS = 'qms_access_requests';
+
+function loadAccessRequests(): AccessRequest[] {
+  try {
+    const raw = localStorage.getItem(LS_ACCESS_REQUESTS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
 
 interface AppContextType {
   currentUser: User;
@@ -48,7 +59,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [documentRelations, setDocumentRelations] = useState<DocumentRelation[]>(mockDocumentRelations);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [departments, setDepartments] = useState<string[]>(['품질팀', '개발팀', '생산팀', '구매팀', '영업팀', '경영지원팀']);
-  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [accessRequests, setAccessRequestsState] = useState<AccessRequest[]>(loadAccessRequests);
+
+  // accessRequests 변경 시 localStorage 동기화
+  const setAccessRequests = (reqs: AccessRequest[]) => {
+    setAccessRequestsState(reqs);
+    try {
+      localStorage.setItem(LS_ACCESS_REQUESTS, JSON.stringify(reqs));
+    } catch { /* ignore */ }
+  };
+
+  // 다른 탭에서 변경 시 동기화
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === LS_ACCESS_REQUESTS) {
+        try {
+          setAccessRequestsState(e.newValue ? JSON.parse(e.newValue) : []);
+        } catch { /* ignore */ }
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
 
   return (
     <AppContext.Provider value={{
