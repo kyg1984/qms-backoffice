@@ -41,6 +41,7 @@ export const DocumentListPage = () => {
   const [uploadError, setUploadError] = useState('');
 
   const canWrite = currentUser.role !== 'VIEWER';
+  const canDelete = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
   const departments = useMemo(() => [...new Set(documents.map(d => d.department))], [documents]);
 
   const filtered = useMemo(() => {
@@ -242,13 +243,13 @@ export const DocumentListPage = () => {
                     <span className="flex items-center gap-1">{label}<SortIcon k={key} /></span>
                   </th>
                 ))}
-                {canWrite && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
+                {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={canWrite ? 8 : 7} className="px-4 py-12 text-center text-gray-400">검색 결과가 없습니다.</td>
+                  <td colSpan={canDelete ? 8 : 7} className="px-4 py-12 text-center text-gray-400">검색 결과가 없습니다.</td>
                 </tr>
               ) : (
                 filtered.map(doc => (
@@ -268,7 +269,7 @@ export const DocumentListPage = () => {
                     <td className="px-4 py-3.5 font-mono text-gray-700">{doc.current_rev}</td>
                     <td className="px-4 py-3.5"><StatusBadge status={doc.status} /></td>
                     <td className="px-4 py-3.5 text-gray-500">{doc.updated_at}</td>
-                    {canWrite && (
+                    {canDelete && (
                       <td className="px-4 py-3.5">
                         <button
                           onClick={e => handleDelete(e, doc)}
