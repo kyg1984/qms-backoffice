@@ -39,7 +39,18 @@ export const DocumentListPage = () => {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadForm, setUploadForm] = useState(INITIAL_FORM);
+  const [docNumberSuffix, setDocNumberSuffix] = useState('');
   const [uploadError, setUploadError] = useState('');
+
+  const nextQmNumber = useMemo(() => {
+    const max = documents
+      .filter(d => d.doc_type === 'QM')
+      .reduce((acc, d) => {
+        const m = d.doc_number.match(/QM-(\d+)/);
+        return m ? Math.max(acc, parseInt(m[1])) : acc;
+      }, 0);
+    return `QM-${String(max + 1).padStart(3, '0')}`;
+  }, [documents]);
 
   const canWrite = currentUser.role !== 'VIEWER';
   const canDelete = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
@@ -78,9 +89,16 @@ export const DocumentListPage = () => {
 
   const handleUpload = () => {
     setUploadError('');
-    const trimmedForm = { ...uploadForm, department: uploadForm.department.trim() };
+    const composedDocNumber = uploadForm.doc_type === 'QM'
+      ? nextQmNumber
+      : `QP-${docNumberSuffix.trim()}`;
+    const trimmedForm = { ...uploadForm, doc_number: composedDocNumber, department: uploadForm.department.trim() };
     setUploadForm(trimmedForm);
-    if (!trimmedForm.doc_number || !trimmedForm.doc_name || !trimmedForm.department || !trimmedForm.fileName) {
+    if (!composedDocNumber || (uploadForm.doc_type === 'QP' && !docNumberSuffix.trim())) {
+      setUploadError('문서번호를 입력하세요.');
+      return;
+    }
+    if (!trimmedForm.doc_name || !trimmedForm.department || !trimmedForm.fileName) {
       setUploadError('모든 필수 항목을 입력하세요.');
       return;
     }
@@ -88,7 +106,7 @@ export const DocumentListPage = () => {
       setUploadError('Rev를 입력하세요.');
       return;
     }
-    if (documents.some(d => d.doc_number === trimmedForm.doc_number)) {
+    if (documents.some(d => d.doc_number === composedDocNumber)) {
       setUploadError('이미 존재하는 문서번호입니다.');
       return;
     }
@@ -122,6 +140,7 @@ export const DocumentListPage = () => {
     }]);
     setShowUploadModal(false);
     setUploadForm(INITIAL_FORM);
+    setDocNumberSuffix('');
   };
 
   const handleDelete = (e: React.MouseEvent, doc: Document) => {
@@ -290,29 +309,44 @@ export const DocumentListPage = () => {
       </div>
 
       {/* Upload Modal */}
-      <Modal isOpen={showUploadModal} onClose={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); }} title="신규 문서 등록" size="lg">
+      <Modal isOpen={showUploadModal} onClose={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); setDocNumberSuffix(''); }} title="신규 문서 등록" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">문서번호 <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={uploadForm.doc_number}
-                onChange={e => setUploadForm(f => ({ ...f, doc_number: e.target.value }))}
-                placeholder="문서번호를 입력하세요"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">문서 구분 <span className="text-red-500">*</span></label>
               <select
                 value={uploadForm.doc_type}
-                onChange={e => setUploadForm(f => ({ ...f, doc_type: e.target.value as DocType }))}
+                onChange={e => {
+                  setUploadForm(f => ({ ...f, doc_type: e.target.value as DocType }));
+                  setDocNumberSuffix('');
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="QP">절차서 (EXO-QP)</option>
-                <option value="QM">매뉴얼 (EXO-QM)</option>
+                <option value="QP">절차서 (QP)</option>
+                <option value="QM">매뉴얼 (QM)</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">문서번호 <span className="text-red-500">*</span></label>
+              {uploadForm.doc_type === 'QP' ? (
+                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                  <span className="px-3 py-2 bg-gray-100 text-sm text-gray-500 border-r border-gray-300 select-none">QP-</span>
+                  <input
+                    type="text"
+                    value={docNumberSuffix}
+                    onChange={e => setDocNumberSuffix(e.target.value.replace(/\D/g, ''))}
+                    placeholder="숫자 입력"
+                    className="flex-1 px-3 py-2 text-sm focus:outline-none"
+                  />
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={nextQmNumber}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+                />
+              )}
             </div>
           </div>
           <div>
@@ -391,7 +425,7 @@ export const DocumentListPage = () => {
           </div>
           {uploadError && <p className="text-red-500 text-sm">{uploadError}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); }} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+            <button onClick={() => { setShowUploadModal(false); setUploadError(''); setUploadForm(INITIAL_FORM); setDocNumberSuffix(''); }} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
             <button onClick={handleUpload} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">등록</button>
           </div>
         </div>
