@@ -77,3 +77,15 @@ export interface DocumentStatusLog {
   changed_by: string;
   changed_at: string;
 }
+
+export interface AccessRequest {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  department: string;
+  status: 'pending' | 'approved' | 'rejected';
+  role?: UserRole;
+  requested_at: string;
+  reviewed_at?: string;
+}

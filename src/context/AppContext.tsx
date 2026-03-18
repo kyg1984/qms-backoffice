@@ -5,6 +5,7 @@ import type {
   DocumentFile,
   DocumentHistory,
   DocumentRelation,
+  AccessRequest,
 } from '../types';
 import {
   mockUsers,
@@ -32,6 +33,8 @@ interface AppContextType {
   setIsLoggedIn: (v: boolean) => void;
   departments: string[];
   setDepartments: (depts: string[]) => void;
+  accessRequests: AccessRequest[];
+  setAccessRequests: (reqs: AccessRequest[]) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -45,6 +48,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [documentRelations, setDocumentRelations] = useState<DocumentRelation[]>(mockDocumentRelations);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [departments, setDepartments] = useState<string[]>(['품질팀', '개발팀', '생산팀', '구매팀', '영업팀', '경영지원팀']);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
 
   return (
     <AppContext.Provider value={{
@@ -56,6 +60,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       documentRelations, setDocumentRelations,
       isLoggedIn, setIsLoggedIn,
       departments, setDepartments,
+      accessRequests, setAccessRequests,
     }}>
       {children}
     </AppContext.Provider>

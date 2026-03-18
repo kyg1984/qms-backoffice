@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, UserX, UserCheck, Eye, EyeOff, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, Eye, EyeOff, Trash2, Building2, ClipboardList, CheckCircle2, XCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal } from '../components/Modal';
 import type { UserRole, User } from '../types';
@@ -16,10 +16,12 @@ const ROLE_COLOR: Record<UserRole, string> = {
 const INIT_FORM = { name: '', email: '', password: '', role: 'VIEWER' as UserRole, department: '' };
 
 export const UserManagementPage = () => {
-  const { users, setUsers, currentUser, departments, setDepartments } = useApp();
+  const { users, setUsers, currentUser, departments, setDepartments, accessRequests, setAccessRequests } = useApp();
   const navigate = useNavigate();
   const [newDeptName, setNewDeptName] = useState('');
   const [showModal, setShowModal] = useState(false);
+  // 승인 역할 선택 상태: requestId → role
+  const [approveRoles, setApproveRoles] = useState<Record<string, UserRole>>({});
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [formError, setFormError] = useState('');
@@ -99,6 +101,42 @@ export const UserManagementPage = () => {
   const toggleActive = (u: User) => {
     if (u.id === currentUser.id) { alert('자신의 계정은 비활성화할 수 없습니다.'); return; }
     setUsers(users.map(x => x.id === u.id ? { ...x, is_active: !x.is_active, updated_at: toDateStr() } : x));
+  };
+
+  const pendingRequests = accessRequests.filter(r => r.status === 'pending');
+
+  const handleApprove = (reqId: string) => {
+    const req = accessRequests.find(r => r.id === reqId);
+    if (!req) return;
+    const role = approveRoles[reqId] || 'VIEWER';
+    const now = toDateStr();
+    // 사용자 추가
+    setUsers([...users, {
+      id: `u${Date.now()}`,
+      name: req.name,
+      email: req.email,
+      password: req.password,
+      role,
+      department: req.department,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    }]);
+    // 요청 상태 업데이트
+    setAccessRequests(accessRequests.map(r =>
+      r.id === reqId ? { ...r, status: 'approved', role, reviewed_at: now } : r
+    ));
+    alert(`✉️ ${req.email} 으로 승인 안내 메일이 발송되었습니다.\n역할: ${role === 'AUTHOR' ? '작성자' : '열람자'}`);
+  };
+
+  const handleReject = (reqId: string) => {
+    const req = accessRequests.find(r => r.id === reqId);
+    if (!req) return;
+    if (!window.confirm(`'${req.name}(${req.email})' 의 권한 요청을 거절하시겠습니까?`)) return;
+    const now = toDateStr();
+    setAccessRequests(accessRequests.map(r =>
+      r.id === reqId ? { ...r, status: 'rejected', reviewed_at: now } : r
+    ));
   };
 
   return (
@@ -183,6 +221,82 @@ export const UserManagementPage = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* 권한 요청 관리 */}
+      <div className="mt-8 bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={16} className="text-gray-500" />
+            <h2 className="text-base font-semibold text-gray-900">권한 요청</h2>
+            {pendingRequests.length > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold">
+                {pendingRequests.length}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          {accessRequests.length === 0 ? (
+            <p className="px-6 py-8 text-center text-sm text-gray-400">접수된 권한 요청이 없습니다.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  {['이름', '부서', '이메일', '요청일', '역할 지정', '처리'].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {accessRequests.map(req => (
+                  <tr key={req.id} className={`${req.status !== 'pending' ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
+                    <td className="px-4 py-3.5 font-medium text-gray-900">{req.name}</td>
+                    <td className="px-4 py-3.5 text-gray-600">{req.department}</td>
+                    <td className="px-4 py-3.5 text-gray-600">{req.email}</td>
+                    <td className="px-4 py-3.5 text-gray-500">{req.requested_at}</td>
+                    <td className="px-4 py-3.5">
+                      {req.status === 'pending' ? (
+                        <select
+                          value={approveRoles[req.id] || 'VIEWER'}
+                          onChange={e => setApproveRoles(prev => ({ ...prev, [req.id]: e.target.value as UserRole }))}
+                          className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="AUTHOR">작성자</option>
+                          <option value="VIEWER">열람자</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                          {req.status === 'approved' ? `승인 (${req.role === 'AUTHOR' ? '작성자' : '열람자'})` : '거절'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {req.status === 'pending' ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleApprove(req.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <CheckCircle2 size={12} /> 승인
+                          </button>
+                          <button
+                            onClick={() => handleReject(req.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <XCircle size={12} /> 거절
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">{req.reviewed_at}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {/* 부서 관리 */}

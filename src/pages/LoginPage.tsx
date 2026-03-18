@@ -1,18 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, X, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const KEY_EMAIL = 'qms_saved_email';
 const KEY_PASSWORD = 'qms_saved_password';
+const DOMAIN = '@cosmo-robotics.com';
+const PW_RULE = /^(?=.*[A-Za-z])(?=.*[0-9]).{4,}$/;
+
+const INIT_REQ = { name: '', email: '', password: '', department: '' };
 
 export const LoginPage = () => {
-  const { setIsLoggedIn, setCurrentUser, users } = useApp();
+  const { setIsLoggedIn, setCurrentUser, users, departments, accessRequests, setAccessRequests } = useApp();
+
+  // 로그인 상태
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [saveEmail, setSaveEmail] = useState(false);
   const [savePw, setSavePw] = useState(false);
+
+  // 권한 요청 모달 상태
+  const [showReqModal, setShowReqModal] = useState(false);
+  const [reqForm, setReqForm] = useState(INIT_REQ);
+  const [reqShowPw, setReqShowPw] = useState(false);
+  const [reqError, setReqError] = useState('');
+  const [reqDone, setReqDone] = useState(false);
 
   // 저장된 값 복원
   useEffect(() => {
@@ -24,7 +37,6 @@ export const LoginPage = () => {
     }
   }, []);
 
-  // 비밀번호 저장은 아이디 저장이 체크된 경우에만 가능
   const handleSaveEmail = (checked: boolean) => {
     setSaveEmail(checked);
     if (!checked) { setSavePw(false); }
@@ -39,17 +51,56 @@ export const LoginPage = () => {
     if (!user) { setError('등록되지 않은 이메일이거나 비활성 계정입니다.'); return; }
     if (user.password !== password) { setError('비밀번호가 올바르지 않습니다.'); return; }
 
-    // 아이디 저장
     if (saveEmail) localStorage.setItem(KEY_EMAIL, email.trim());
     else localStorage.removeItem(KEY_EMAIL);
-
-    // 비밀번호 저장
     if (savePw && saveEmail) localStorage.setItem(KEY_PASSWORD, btoa(password));
     else localStorage.removeItem(KEY_PASSWORD);
 
     setCurrentUser(user);
     setIsLoggedIn(true);
     setError('');
+  };
+
+  const openReqModal = () => {
+    setReqForm(INIT_REQ);
+    setReqError('');
+    setReqDone(false);
+    setReqShowPw(false);
+    setShowReqModal(true);
+  };
+
+  const handleRequest = () => {
+    setReqError('');
+    if (!reqForm.name.trim()) { setReqError('이름을 입력하세요.'); return; }
+    if (!reqForm.department) { setReqError('부서를 선택하세요.'); return; }
+    if (!reqForm.email.trim()) { setReqError('이메일을 입력하세요.'); return; }
+    if (!reqForm.email.trim().endsWith(DOMAIN)) {
+      setReqError(`이메일은 ${DOMAIN} 형식이어야 합니다.`); return;
+    }
+    if (users.some(u => u.email === reqForm.email.trim())) {
+      setReqError('이미 등록된 이메일입니다.'); return;
+    }
+    if (accessRequests.some(r => r.email === reqForm.email.trim() && r.status === 'pending')) {
+      setReqError('이미 권한 요청 중인 이메일입니다.'); return;
+    }
+    if (!PW_RULE.test(reqForm.password)) {
+      setReqError('비밀번호는 영문 + 숫자 조합 4자 이상이어야 합니다.'); return;
+    }
+
+    const now = new Date().toISOString().slice(0, 10);
+    setAccessRequests([
+      ...accessRequests,
+      {
+        id: `req_${Date.now()}`,
+        name: reqForm.name.trim(),
+        email: reqForm.email.trim(),
+        password: reqForm.password,
+        department: reqForm.department,
+        status: 'pending',
+        requested_at: now,
+      },
+    ]);
+    setReqDone(true);
   };
 
   return (
@@ -88,7 +139,6 @@ export const LoginPage = () => {
               </div>
             </div>
 
-            {/* 아이디 / 비밀번호 각각 저장 */}
             <div className="flex items-center gap-5">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
@@ -119,8 +169,134 @@ export const LoginPage = () => {
               로그인
             </button>
           </form>
+
+          {/* 권한 요청 링크 */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={openReqModal}
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+            >
+              계정이 없으신가요? 권한 요청하기
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* 권한 요청 모달 */}
+      {showReqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">권한 요청</h2>
+              <button onClick={() => setShowReqModal(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {reqDone ? (
+                /* 요청 완료 화면 */
+                <div className="text-center py-4 space-y-4">
+                  <CheckCircle size={48} className="text-green-500 mx-auto" />
+                  <div>
+                    <p className="text-base font-semibold text-gray-900">권한 요청이 완료되었습니다</p>
+                    <p className="text-sm text-gray-500 mt-1">관리자 승인 후 계정을 사용하실 수 있습니다.</p>
+                    <p className="text-sm text-gray-500">승인 시 입력하신 이메일로 안내 메일이 발송됩니다.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowReqModal(false)}
+                    className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    확인
+                  </button>
+                </div>
+              ) : (
+                /* 요청 폼 */
+                <div className="space-y-4">
+                  <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                    이메일은 <strong>{DOMAIN}</strong> 형식만 가능합니다. 관리자 승인 후 계정이 활성화됩니다.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">이름 <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={reqForm.name}
+                        onChange={e => setReqForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="이름"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">부서 <span className="text-red-500">*</span></label>
+                      <select
+                        value={reqForm.department}
+                        onChange={e => setReqForm(f => ({ ...f, department: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">부서 선택</option>
+                        {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">이메일 <span className="text-red-500">*</span></label>
+                    <div className="flex">
+                      <input
+                        type="text"
+                        value={reqForm.email}
+                        onChange={e => setReqForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder={`이메일 입력 (예: hong${DOMAIN})`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호 <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <input
+                        type={reqShowPw ? 'text' : 'password'}
+                        value={reqForm.password}
+                        onChange={e => setReqForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="영문 + 숫자 조합 4자 이상"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-9"
+                      />
+                      <button type="button" onClick={() => setReqShowPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {reqShowPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">영문 + 숫자 조합 4자 이상</p>
+                  </div>
+
+                  {reqError && <p className="text-red-500 text-sm">{reqError}</p>}
+
+                  <div className="flex justify-end gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowReqModal(false)}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRequest}
+                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      권한 요청
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
