@@ -304,7 +304,7 @@ export const DocumentDetailPage = () => {
               <button onClick={handleDownload} disabled={doc.status !== 'APPROVED'} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${doc.status === 'APPROVED' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`} title={doc.status !== 'APPROVED' ? '승인된 문서만 다운로드 가능합니다' : undefined}><Download size={13} />다운로드</button>
             </div>
           </div>
-          <div className="min-h-96 flex items-center justify-center bg-gray-100">
+          <div className="flex items-center justify-center bg-gray-100" style={{minHeight: '70vh'}}>
             {!currentFile ? (
               <div className="text-center text-gray-400">
                 <FileText size={40} className="mx-auto mb-2 opacity-40" />
@@ -326,7 +326,7 @@ export const DocumentDetailPage = () => {
                 </button>
               </div>
             ) : (
-              <div className="w-full h-96 flex items-center justify-center bg-white border border-gray-200 m-4 rounded-lg">
+              <div className="w-full flex items-center justify-center bg-white border border-gray-200 m-4 rounded-lg" style={{minHeight: '65vh'}}>
                 <div className="text-center text-gray-400">
                   <div className="w-16 h-20 bg-red-50 border border-red-200 rounded flex items-center justify-center mx-auto mb-3">
                     <span className="text-red-500 font-bold text-lg uppercase">{currentFile.file_ext}</span>
