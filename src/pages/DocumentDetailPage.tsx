@@ -231,7 +231,7 @@ export const DocumentDetailPage = () => {
               <StatusBadge status={doc.status} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{doc.doc_name}</h1>
-            <p className="text-sm text-gray-500 mt-1">{doc.department} · {doc.current_rev} · 최종 수정: {doc.updated_at}</p>
+            <p className="text-sm text-gray-500 mt-1">{doc.department} · {doc.current_rev} · 개정일자: {doc.updated_at}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {doc.status !== 'APPROVED' && (
@@ -361,7 +361,7 @@ export const DocumentDetailPage = () => {
                 ['담당부서', doc.department],
                 ['현재 Rev', doc.current_rev],
                 ['등록일', doc.created_at],
-                ['최종 수정일', doc.updated_at],
+                ['개정일자', doc.updated_at],
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</dt>
@@ -384,6 +384,25 @@ export const DocumentDetailPage = () => {
                   <Plus size={14} /> 지침서 추가
                 </button>
               )}
+            </div>
+            {/* 문서 기본 정보 요약 */}
+            <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">문서번호</p>
+                <p className="text-sm font-semibold text-blue-600 font-mono mt-0.5">{doc.doc_number}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">문서명</p>
+                <p className="text-sm font-medium text-gray-800 mt-0.5 truncate">{doc.doc_name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">현재 Rev</p>
+                <p className="text-sm font-medium text-gray-800 mt-0.5">{doc.current_rev}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">상태</p>
+                <div className="mt-0.5"><StatusBadge status={doc.status} /></div>
+              </div>
             </div>
             <div className="space-y-2">
               {instructionFiles.length === 0 ? (
