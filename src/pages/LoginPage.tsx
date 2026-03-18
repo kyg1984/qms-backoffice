@@ -2,12 +2,8 @@ import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const STORAGE_KEY = 'qms_saved_credentials';
-
-interface SavedCredentials {
-  email: string;
-  password: string; // btoa encoded
-}
+const KEY_EMAIL = 'qms_saved_email';
+const KEY_PASSWORD = 'qms_saved_password';
 
 export const LoginPage = () => {
   const { setIsLoggedIn, setCurrentUser, users } = useApp();
@@ -15,22 +11,24 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [saveEmail, setSaveEmail] = useState(false);
+  const [savePw, setSavePw] = useState(false);
 
-  // 저장된 자격증명 복원
+  // 저장된 값 복원
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved: SavedCredentials = JSON.parse(raw);
-        setEmail(saved.email);
-        setPassword(atob(saved.password));
-        setRememberMe(true);
-      }
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
+    const savedEmail = localStorage.getItem(KEY_EMAIL);
+    const savedPw = localStorage.getItem(KEY_PASSWORD);
+    if (savedEmail) { setEmail(savedEmail); setSaveEmail(true); }
+    if (savedPw) {
+      try { setPassword(atob(savedPw)); setSavePw(true); } catch { localStorage.removeItem(KEY_PASSWORD); }
     }
   }, []);
+
+  // 비밀번호 저장은 아이디 저장이 체크된 경우에만 가능
+  const handleSaveEmail = (checked: boolean) => {
+    setSaveEmail(checked);
+    if (!checked) { setSavePw(false); }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,13 +39,13 @@ export const LoginPage = () => {
     if (!user) { setError('등록되지 않은 이메일이거나 비활성 계정입니다.'); return; }
     if (user.password !== password) { setError('비밀번호가 올바르지 않습니다.'); return; }
 
-    // 저장 여부에 따라 localStorage 처리
-    if (rememberMe) {
-      const creds: SavedCredentials = { email: email.trim(), password: btoa(password) };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(creds));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    // 아이디 저장
+    if (saveEmail) localStorage.setItem(KEY_EMAIL, email.trim());
+    else localStorage.removeItem(KEY_EMAIL);
+
+    // 비밀번호 저장
+    if (savePw && saveEmail) localStorage.setItem(KEY_PASSWORD, btoa(password));
+    else localStorage.removeItem(KEY_PASSWORD);
 
     setCurrentUser(user);
     setIsLoggedIn(true);
@@ -90,17 +88,26 @@ export const LoginPage = () => {
               </div>
             </div>
 
-            {/* 아이디/비밀번호 저장 */}
-            <div className="flex items-center gap-2">
-              <input
-                id="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-              <label htmlFor="remember-me" className="text-sm text-gray-600 cursor-pointer select-none">
-                아이디 / 비밀번호 저장
+            {/* 아이디 / 비밀번호 각각 저장 */}
+            <div className="flex items-center gap-5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={saveEmail}
+                  onChange={e => handleSaveEmail(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-600">아이디 저장</span>
+              </label>
+              <label className={`flex items-center gap-2 select-none ${saveEmail ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}`}>
+                <input
+                  type="checkbox"
+                  checked={savePw}
+                  disabled={!saveEmail}
+                  onChange={e => setSavePw(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-gray-600">비밀번호 저장</span>
               </label>
             </div>
 
