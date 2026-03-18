@@ -16,6 +16,16 @@ const DOC_TYPE_LABEL: Record<string, string> = { QI: '지침서', QP: '절차서
 
 type Tab = 'webview' | 'info' | 'history' | 'relations';
 
+interface FolderItem {
+  id: string;
+  name: string;
+  doc_number: string;
+  doc_name: string;
+  department: string;
+}
+
+const EMPTY_FOLDER: Omit<FolderItem, 'id'> = { name: '', doc_number: '', doc_name: '', department: '' };
+
 export const DocumentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -56,10 +66,10 @@ export const DocumentDetailPage = () => {
   const [formFolder, setFormFolder] = useState('');
 
   // Folder management (양식)
-  const [formFolders, setFormFolders] = useState<string[]>([]);
+  const [formFolders, setFormFolders] = useState<FolderItem[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showFolderModal, setShowFolderModal] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolder, setNewFolder] = useState<Omit<FolderItem, 'id'>>({ ...EMPTY_FOLDER });
 
   // Instruction (지침서) upload
   const [showInstructionModal, setShowInstructionModal] = useState(false);
@@ -80,9 +90,15 @@ export const DocumentDetailPage = () => {
   const canWrite = currentUser.role !== 'VIEWER';
   const canApprove = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
   const canDelete = currentUser.role === 'ADMIN';
-  // 양식 업로드: ADMIN, AUTHOR, 담당부서 / 삭제: 동일 (타부서 VIEWER 제외)
-  const canUploadForm = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR' || currentUser.department === doc.department;
-  const canDeleteForm = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR' || currentUser.department === doc.department;
+  // 양식 업로드: ADMIN, AUTHOR, 폴더 담당부서 / 삭제: 동일
+  const isAdminOrAuthor = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
+  const canUploadToFolder = (folderName: string) => {
+    if (isAdminOrAuthor) return true;
+    const folder = formFolders.find(f => f.name === folderName);
+    return !!folder && currentUser.department === folder.department;
+  };
+  const canUploadForm = isAdminOrAuthor || formFolders.some(f => currentUser.department === f.department);
+  const canDeleteForm = isAdminOrAuthor || formFolders.some(f => currentUser.department === f.department);
 
   const handleApprove = () => {
     if (!window.confirm('승인으로 변경하시겠습니까?')) return;
@@ -90,7 +106,10 @@ export const DocumentDetailPage = () => {
   };
   const currentFile = documentFiles.find(f => f.document_id === doc.id && f.is_current);
   const allFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'form').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
-  const allFolderNames = [...new Set([...formFolders, ...allFiles.map(f => f.form_folder).filter(Boolean) as string[]])].sort();
+  // orphan folders from files (no FolderItem metadata)
+  const orphanFolderNames = [...new Set(allFiles.map(f => f.form_folder).filter(Boolean) as string[])].filter(n => !formFolders.find(f => f.name === n));
+  const allFolderItems: FolderItem[] = [...formFolders, ...orphanFolderNames.map(n => ({ id: n, name: n, doc_number: '', doc_name: n, department: '' }))];
+  const allFolderNames = allFolderItems.map(f => f.name);
   const unfoldered = allFiles.filter(f => !f.form_folder);
   const instructionFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'instruction').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
   const histories = documentHistories.filter(h => h.document_id === doc.id).sort((a, b) => a.revision_date.localeCompare(b.revision_date));
@@ -170,6 +189,8 @@ export const DocumentDetailPage = () => {
 
   const resetFormModal = () => { setShowFormModal(false); setFormFileName(''); setFormDocNumber(''); setFormDocName(''); setFormDepartment(''); setFormFolder(''); };
   const handleFormUpload = () => {
+    if (!formFolder.trim()) { alert('폴더를 선택하세요.'); return; }
+    if (!canUploadToFolder(formFolder.trim())) { alert('해당 폴더에 업로드 권한이 없습니다.'); return; }
     if (!formDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
     if (!formDocName.trim()) { alert('문서명을 입력하세요.'); return; }
     if (!formFileName) { alert('파일을 선택하세요.'); return; }
@@ -189,11 +210,8 @@ export const DocumentDetailPage = () => {
       attach_doc_number: formDocNumber.trim(),
       attach_doc_name: formDocName.trim(),
       attach_department: formDepartment.trim(),
-      form_folder: folder || undefined,
+      form_folder: folder,
     }]);
-    if (folder && !formFolders.includes(folder)) {
-      setFormFolders(ff => [...ff, folder]);
-    }
     resetFormModal();
   };
 
@@ -206,14 +224,15 @@ export const DocumentDetailPage = () => {
   };
 
   const handleAddFolder = () => {
-    const name = newFolderName.trim();
+    const name = newFolder.name.trim();
     if (!name) { alert('폴더명을 입력하세요.'); return; }
-    if (!formFolders.includes(name) && !allFolderNames.includes(name)) {
-      setFormFolders(ff => [...ff, name]);
+    if (!allFolderNames.includes(name)) {
+      const item: FolderItem = { id: `fd${Date.now()}`, name, doc_number: newFolder.doc_number.trim(), doc_name: newFolder.doc_name.trim(), department: newFolder.department.trim() };
+      setFormFolders(ff => [...ff, item]);
       setExpandedFolders(ef => new Set([...ef, name]));
     }
     setShowFolderModal(false);
-    setNewFolderName('');
+    setNewFolder({ ...EMPTY_FOLDER });
   };
 
   const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); setInstructionUploadDate(''); };
@@ -518,46 +537,66 @@ export const DocumentDetailPage = () => {
                   )}
 
                   {/* 폴더 행 + 하위 파일 행 */}
-                  {allFolderNames.map(folder => {
+                  {allFolderItems.map(folderItem => {
+                    const folder = folderItem.name;
                     const folderFiles = allFiles.filter(f => f.form_folder === folder);
                     const isExpanded = expandedFolders.has(folder);
+                    const canUpload = canUploadToFolder(folder);
+                    const canDelete = isAdminOrAuthor || currentUser.department === folderItem.department;
                     return (
                       <React.Fragment key={`group-${folder}`}>
-                        {/* 폴더 행 */}
+                        {/* 폴더 행 — 컬럼 구조에 맞게 데이터 표시 */}
                         <tr
-                          className="bg-gray-50 hover:bg-gray-100 cursor-pointer select-none transition-colors"
+                          className="bg-amber-50 hover:bg-amber-100 cursor-pointer select-none transition-colors border-y border-amber-100"
                           onClick={() => toggleFolder(folder)}
                         >
-                          <td colSpan={canDeleteForm ? 4 : 3} className="px-4 py-2.5">
-                            <div className="flex items-center gap-2">
-                              {isExpanded ? <ChevronDown size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
-                              {isExpanded ? <FolderOpen size={15} className="text-yellow-500 flex-shrink-0" /> : <Folder size={15} className="text-yellow-500 flex-shrink-0" />}
-                              <span className="font-semibold text-gray-800">{folder}</span>
-                              <span className="text-xs text-gray-400 font-normal">({folderFiles.length})</span>
+                          {/* 문서번호 */}
+                          <td className="px-4 py-2.5 font-mono text-sm font-semibold text-gray-700">
+                            <div className="flex items-center gap-1.5">
+                              {isExpanded ? <ChevronDown size={13} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={13} className="text-gray-400 flex-shrink-0" />}
+                              {folderItem.doc_number || '-'}
                             </div>
                           </td>
+                          {/* 문서명 */}
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? <FolderOpen size={14} className="text-yellow-500 flex-shrink-0" /> : <Folder size={14} className="text-yellow-500 flex-shrink-0" />}
+                              <span className="text-sm font-semibold text-gray-800">{folderItem.doc_name || folder}</span>
+                              <span className="text-xs text-gray-400">({folderFiles.length})</span>
+                            </div>
+                          </td>
+                          {/* 담당부서 */}
+                          <td className="px-4 py-2.5 text-sm text-gray-600">
+                            {folderItem.department ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">{folderItem.department}</span>
+                            ) : '-'}
+                          </td>
+                          {/* 다운로드 컬럼: + 업로드 버튼 */}
                           <td className="px-4 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1">
-                              {canUploadForm && (
+                            {canUpload && (
+                              <button
+                                onClick={() => { setFormFolder(folder); setShowFormModal(true); }}
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                                title="이 폴더에 양식 추가"
+                              >
+                                <Plus size={12} /> 양식 추가
+                              </button>
+                            )}
+                          </td>
+                          {/* 삭제 */}
+                          {canDeleteForm && (
+                            <td className="px-4 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                              {canDelete && folderFiles.length === 0 && (
                                 <button
-                                  onClick={() => { setFormFolder(folder); setShowFormModal(true); }}
-                                  className="p-1.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
-                                  title="이 폴더에 양식 추가"
-                                >
-                                  <Plus size={13} />
-                                </button>
-                              )}
-                              {canDeleteForm && folderFiles.length === 0 && (
-                                <button
-                                  onClick={() => setFormFolders(ff => ff.filter(fn => fn !== folder))}
-                                  className="p-1.5 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors"
+                                  onClick={() => setFormFolders(ff => ff.filter(f => f.name !== folder))}
+                                  className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors"
                                   title="빈 폴더 삭제"
                                 >
                                   <Trash2 size={13} />
                                 </button>
                               )}
-                            </div>
-                          </td>
+                            </td>
+                          )}
                         </tr>
 
                         {/* 폴더 내 파일 행 */}
@@ -828,18 +867,21 @@ export const DocumentDetailPage = () => {
       <Modal isOpen={showFormModal} onClose={resetFormModal} title="양식 추가" size="md">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">폴더</label>
-            <input
-              type="text"
-              list="form-folder-list"
-              value={formFolder}
-              onChange={e => setFormFolder(e.target.value)}
-              placeholder="폴더 선택 또는 직접 입력 (선택사항)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <datalist id="form-folder-list">
-              {allFolderNames.map(fn => <option key={fn} value={fn} />)}
-            </datalist>
+            <label className="block text-sm font-medium text-gray-700 mb-1">폴더 <span className="text-red-500">*</span></label>
+            {allFolderItems.length === 0 ? (
+              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">먼저 폴더를 추가해 주세요.</p>
+            ) : (
+              <select
+                value={formFolder}
+                onChange={e => setFormFolder(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">폴더를 선택하세요</option>
+                {allFolderItems.filter(fi => canUploadToFolder(fi.name)).map(fi => (
+                  <option key={fi.id} value={fi.name}>{fi.doc_name || fi.name}{fi.department ? ` [${fi.department}]` : ''}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -880,22 +922,25 @@ export const DocumentDetailPage = () => {
       </Modal>
 
       {/* Folder Create Modal */}
-      <Modal isOpen={showFolderModal} onClose={() => { setShowFolderModal(false); setNewFolderName(''); }} title="폴더 추가" size="sm">
+      <Modal isOpen={showFolderModal} onClose={() => { setShowFolderModal(false); setNewFolder({ ...EMPTY_FOLDER }); }} title="폴더 추가" size="md">
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">폴더명 <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddFolder()}
-              placeholder="폴더명을 입력하세요"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">문서번호</label>
+              <input type="text" value={newFolder.doc_number} onChange={e => setNewFolder(f => ({ ...f, doc_number: e.target.value }))} placeholder="예) EXO-QF" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">담당부서</label>
+              <input type="text" value={newFolder.department} onChange={e => setNewFolder(f => ({ ...f, department: e.target.value }))} placeholder="예) 품질팀" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
           </div>
-          <div className="flex justify-end gap-3">
-            <button onClick={() => { setShowFolderModal(false); setNewFolderName(''); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">문서명 <span className="text-red-500">*</span></label>
+            <input type="text" value={newFolder.doc_name} onChange={e => setNewFolder(f => ({ ...f, doc_name: e.target.value, name: e.target.value }))} placeholder="폴더 문서명을 입력하세요" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+            <p className="text-xs text-gray-400 mt-0.5">폴더명으로 사용됩니다</p>
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button onClick={() => { setShowFolderModal(false); setNewFolder({ ...EMPTY_FOLDER }); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
             <button onClick={handleAddFolder} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">추가</button>
           </div>
         </div>
