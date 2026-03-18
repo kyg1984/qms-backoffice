@@ -60,6 +60,7 @@ export const DocumentDetailPage = () => {
   const [instructionDocNumber, setInstructionDocNumber] = useState('');
   const [instructionDocName, setInstructionDocName] = useState('');
   const [instructionRev, setInstructionRev] = useState('');
+  const [instructionUploadDate, setInstructionUploadDate] = useState('');
 
   if (!doc) return (
     <div className="p-8 text-center">
@@ -178,7 +179,7 @@ export const DocumentDetailPage = () => {
     resetFormModal();
   };
 
-  const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); };
+  const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); setInstructionUploadDate(''); };
   const handleInstructionUpload = () => {
     if (!instructionDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
     if (!instructionDocName.trim()) { alert('문서명을 입력하세요.'); return; }
@@ -193,7 +194,7 @@ export const DocumentDetailPage = () => {
       file_size: 80000,
       is_current: false,
       uploaded_by: currentUser.id,
-      uploaded_at: toDateStr(),
+      uploaded_at: instructionUploadDate.trim() || toDateStr(),
       file_category: 'instruction',
       attach_doc_number: instructionDocNumber.trim(),
       attach_doc_name: instructionDocName.trim(),
@@ -410,12 +411,12 @@ export const DocumentDetailPage = () => {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Rev</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일자</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
-                    {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
+                    {canWrite && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {instructionFiles.length === 0 ? (
-                    <tr><td colSpan={canDelete ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 지침서가 없습니다.</td></tr>
+                    <tr><td colSpan={canWrite ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 지침서가 없습니다.</td></tr>
                   ) : (
                     instructionFiles.map((f) => (
                       <tr key={f.id} className="hover:bg-blue-50 transition-colors">
@@ -433,7 +434,7 @@ export const DocumentDetailPage = () => {
                             <Download size={13} /> 다운로드
                           </button>
                         </td>
-                        {canDelete && (
+                        {canWrite && (
                           <td className="px-4 py-3.5 text-center">
                             <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
                               <Trash2 size={14} />
@@ -757,9 +758,16 @@ export const DocumentDetailPage = () => {
               <input type="text" value={instructionRev} onChange={e => setInstructionRev(e.target.value)} placeholder="예) Rev.00" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">문서명 <span className="text-red-500">*</span></label>
-            <input type="text" value={instructionDocName} onChange={e => setInstructionDocName(e.target.value)} placeholder="지침서 문서명을 입력하세요" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">문서명 <span className="text-red-500">*</span></label>
+              <input type="text" value={instructionDocName} onChange={e => setInstructionDocName(e.target.value)} placeholder="지침서 문서명을 입력하세요" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div className="col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">업로드일자</label>
+              <input type="text" value={instructionUploadDate} onChange={e => setInstructionUploadDate(e.target.value)} placeholder="YYYY-MM-DD" maxLength={10} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <p className="text-xs text-gray-400 mt-0.5">미입력 시 오늘 날짜</p>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">파일 첨부 <span className="text-red-500">*</span></label>
