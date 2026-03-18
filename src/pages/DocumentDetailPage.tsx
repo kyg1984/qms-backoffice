@@ -376,90 +376,116 @@ export const DocumentDetailPage = () => {
           </div>
 
           {/* 지침서 */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900">지침서</h3>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">지침서 <span className="text-sm font-normal text-gray-400 ml-1">({instructionFiles.length})</span></h3>
               {canWrite && (
                 <button onClick={() => setShowInstructionModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
                   <Plus size={14} /> 지침서 추가
                 </button>
               )}
             </div>
-            <div className="space-y-2">
-              {instructionFiles.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">등록된 지침서가 없습니다.</p>
-              ) : (
-                instructionFiles.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <FileText size={15} className="text-gray-400" />
-                      <span className="text-sm text-gray-700">{f.file_path.split('/').pop()}</span>
-                      <span className="text-xs text-gray-400">.{f.file_ext} · {(f.file_size / 1024).toFixed(0)}KB</span>
-                      <span className="text-xs text-gray-400">{f.uploaded_at}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        <Download size={13} /> 다운로드
-                      </button>
-                      {canDelete && (
-                        <button
-                          onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))}
-                          className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">파일명</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">형식</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">크기</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
+                    {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {instructionFiles.length === 0 ? (
+                    <tr><td colSpan={canDelete ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 지침서가 없습니다.</td></tr>
+                  ) : (
+                    instructionFiles.map((f) => (
+                      <tr key={f.id} className="hover:bg-blue-50 transition-colors">
+                        <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-800 font-medium">{f.file_path.split('/').pop()}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5"><span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">.{f.file_ext}</span></td>
+                        <td className="px-4 py-3.5 text-sm text-gray-500">{(f.file_size / 1024).toFixed(0)}KB</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-500">{f.uploaded_at}</td>
+                        <td className="px-4 py-3.5 text-center">
+                          <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors mx-auto">
+                            <Download size={13} /> 다운로드
+                          </button>
+                        </td>
+                        {canDelete && (
+                          <td className="px-4 py-3.5 text-center">
+                            <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
           {/* 양식 */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900">양식</h3>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">양식 <span className="text-sm font-normal text-gray-400 ml-1">({allFiles.length})</span></h3>
               {canWrite && (
                 <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
                   <Plus size={14} /> 양식 추가
                 </button>
               )}
             </div>
-            <div className="space-y-2">
-              {allFiles.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">등록된 양식이 없습니다.</p>
-              ) : (
-                allFiles.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <FileText size={15} className="text-gray-400" />
-                      <span className="text-sm text-gray-700">{f.file_path.split('/').pop()}</span>
-                      <span className="text-xs text-gray-400">.{f.file_ext} · {(f.file_size / 1024).toFixed(0)}KB</span>
-                      <span className="text-xs text-gray-400">{f.uploaded_at}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        <Download size={13} /> 다운로드
-                      </button>
-                      {canDelete && (
-                        <button
-                          onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))}
-                          className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">파일명</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">형식</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">크기</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
+                    {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {allFiles.length === 0 ? (
+                    <tr><td colSpan={canDelete ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 양식이 없습니다.</td></tr>
+                  ) : (
+                    allFiles.map((f) => (
+                      <tr key={f.id} className="hover:bg-blue-50 transition-colors">
+                        <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-800 font-medium">{f.file_path.split('/').pop()}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5"><span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">.{f.file_ext}</span></td>
+                        <td className="px-4 py-3.5 text-sm text-gray-500">{(f.file_size / 1024).toFixed(0)}KB</td>
+                        <td className="px-4 py-3.5 text-sm text-gray-500">{f.uploaded_at}</td>
+                        <td className="px-4 py-3.5 text-center">
+                          <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors mx-auto">
+                            <Download size={13} /> 다운로드
+                          </button>
+                        </td>
+                        {canDelete && (
+                          <td className="px-4 py-3.5 text-center">
+                            <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
