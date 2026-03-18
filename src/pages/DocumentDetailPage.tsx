@@ -35,6 +35,7 @@ export const DocumentDetailPage = () => {
     documentHistories, setDocumentHistories,
     documentRelations, setDocumentRelations,
     currentUser,
+    departments,
   } = useApp();
 
   const doc = documents.find(d => d.id === id);
@@ -890,7 +891,10 @@ export const DocumentDetailPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">담당부서</label>
-              <input type="text" value={formDepartment} onChange={e => setFormDepartment(e.target.value)} placeholder="예) 품질팀" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <select value={formDepartment} onChange={e => setFormDepartment(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="">부서 선택</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
           </div>
           <div>
@@ -931,7 +935,10 @@ export const DocumentDetailPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">담당부서</label>
-              <input type="text" value={newFolder.department} onChange={e => setNewFolder(f => ({ ...f, department: e.target.value }))} placeholder="예) 품질팀" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <select value={newFolder.department} onChange={e => setNewFolder(f => ({ ...f, department: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="">부서 선택</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
           </div>
           <div>

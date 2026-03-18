@@ -30,6 +30,8 @@ interface AppContextType {
   setDocumentRelations: (relations: DocumentRelation[]) => void;
   isLoggedIn: boolean;
   setIsLoggedIn: (v: boolean) => void;
+  departments: string[];
+  setDepartments: (depts: string[]) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -42,6 +44,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [documentHistories, setDocumentHistories] = useState<DocumentHistory[]>(mockDocumentHistories);
   const [documentRelations, setDocumentRelations] = useState<DocumentRelation[]>(mockDocumentRelations);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [departments, setDepartments] = useState<string[]>(['품질팀', '개발팀', '생산팀', '구매팀', '영업팀', '경영지원팀']);
 
   return (
     <AppContext.Provider value={{
@@ -52,6 +55,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       documentHistories, setDocumentHistories,
       documentRelations, setDocumentRelations,
       isLoggedIn, setIsLoggedIn,
+      departments, setDepartments,
     }}>
       {children}
     </AppContext.Provider>

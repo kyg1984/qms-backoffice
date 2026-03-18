@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Plus, Edit2, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, Eye, EyeOff, Trash2, Building2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal } from '../components/Modal';
 import type { UserRole, User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { toDateStr, isValidEmail } from '../utils/date';
-import { useMemo } from 'react';
 
 const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '관리자', AUTHOR: '작성자', VIEWER: '열람자' };
 const ROLE_COLOR: Record<UserRole, string> = {
@@ -17,9 +16,9 @@ const ROLE_COLOR: Record<UserRole, string> = {
 const INIT_FORM = { name: '', email: '', password: '', role: 'VIEWER' as UserRole, department: '' };
 
 export const UserManagementPage = () => {
-  const { users, setUsers, currentUser, documents } = useApp();
+  const { users, setUsers, currentUser, departments, setDepartments } = useApp();
   const navigate = useNavigate();
-  const departments = useMemo(() => [...new Set(documents.map(d => d.department))], [documents]);
+  const [newDeptName, setNewDeptName] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState(INIT_FORM);
@@ -186,6 +185,74 @@ export const UserManagementPage = () => {
         </table>
       </div>
 
+      {/* 부서 관리 */}
+      <div className="mt-8 bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Building2 size={16} className="text-gray-500" />
+            <h2 className="text-base font-semibold text-gray-900">부서 관리</h2>
+            <span className="text-sm font-normal text-gray-400">({departments.length})</span>
+          </div>
+        </div>
+        <div className="px-6 py-4">
+          {/* 부서 추가 */}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newDeptName}
+              onChange={e => setNewDeptName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const name = newDeptName.trim();
+                  if (!name) return;
+                  if (departments.includes(name)) { alert('이미 존재하는 부서입니다.'); return; }
+                  setDepartments([...departments, name]);
+                  setNewDeptName('');
+                }
+              }}
+              placeholder="부서명 입력 후 Enter 또는 추가 버튼"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => {
+                const name = newDeptName.trim();
+                if (!name) return;
+                if (departments.includes(name)) { alert('이미 존재하는 부서입니다.'); return; }
+                setDepartments([...departments, name]);
+                setNewDeptName('');
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus size={14} /> 추가
+            </button>
+          </div>
+          {/* 부서 목록 */}
+          {departments.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">등록된 부서가 없습니다.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {departments.map(dept => (
+                <div key={dept} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 group">
+                  <span>{dept}</span>
+                  <button
+                    onClick={() => {
+                      if (users.some(u => u.department === dept)) {
+                        if (!window.confirm(`'${dept}' 부서를 사용 중인 계정이 있습니다. 삭제하시겠습니까?`)) return;
+                      }
+                      setDepartments(departments.filter(d => d !== dept));
+                    }}
+                    className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    title="삭제"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editUser ? '계정 수정' : '계정 생성'} size="sm">
         <div className="space-y-4">
           <div>
@@ -225,17 +292,14 @@ export const UserManagementPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
-              <input
-                type="text"
-                list="user-dept-list"
+              <select
                 value={form.department}
                 onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                placeholder="부서 선택 또는 입력"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <datalist id="user-dept-list">
-                {departments.map(d => <option key={d} value={d} />)}
-              </datalist>
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">부서 선택</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
           </div>
           {formError && <p className="text-red-500 text-sm">{formError}</p>}

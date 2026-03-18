@@ -26,7 +26,7 @@ const INITIAL_FORM = {
 
 export const DocumentListPage = () => {
   const navigate = useNavigate();
-  const { documents, setDocuments, documentFiles, setDocumentFiles, documentHistories, setDocumentHistories, documentRelations, setDocumentRelations, currentUser } = useApp();
+  const { documents, setDocuments, documentFiles, setDocumentFiles, documentHistories, setDocumentHistories, documentRelations, setDocumentRelations, currentUser, departments } = useApp();
 
   const [keyword, setKeyword] = useState('');
   const [filterType, setFilterType] = useState<DocType[]>([]);
@@ -54,7 +54,6 @@ export const DocumentListPage = () => {
 
   const canWrite = currentUser.role !== 'VIEWER';
   const canDelete = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
-  const departments = useMemo(() => [...new Set(documents.map(d => d.department))], [documents]);
 
   const filtered = useMemo(() => {
     return documents.filter(d => {
@@ -362,17 +361,14 @@ export const DocumentListPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">담당부서 <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                list="dept-list"
+              <select
                 value={uploadForm.department}
                 onChange={e => setUploadForm(f => ({ ...f, department: e.target.value }))}
-                placeholder="부서 선택 또는 직접 입력"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <datalist id="dept-list">
-                {departments.map(d => <option key={d} value={d} />)}
-              </datalist>
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">부서 선택</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Rev <span className="text-red-500">*</span></label>
