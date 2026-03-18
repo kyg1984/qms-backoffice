@@ -1,6 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+
+const STORAGE_KEY = 'qms_saved_credentials';
+
+interface SavedCredentials {
+  email: string;
+  password: string; // btoa encoded
+}
 
 export const LoginPage = () => {
   const { setIsLoggedIn, setCurrentUser, users } = useApp();
@@ -8,6 +15,22 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // 저장된 자격증명 복원
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved: SavedCredentials = JSON.parse(raw);
+        setEmail(saved.email);
+        setPassword(atob(saved.password));
+        setRememberMe(true);
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,6 +40,14 @@ export const LoginPage = () => {
     const user = users.find(u => u.email === email.trim() && u.is_active);
     if (!user) { setError('등록되지 않은 이메일이거나 비활성 계정입니다.'); return; }
     if (user.password !== password) { setError('비밀번호가 올바르지 않습니다.'); return; }
+
+    // 저장 여부에 따라 localStorage 처리
+    if (rememberMe) {
+      const creds: SavedCredentials = { email: email.trim(), password: btoa(password) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(creds));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
 
     setCurrentUser(user);
     setIsLoggedIn(true);
@@ -58,6 +89,21 @@ export const LoginPage = () => {
                 </button>
               </div>
             </div>
+
+            {/* 아이디/비밀번호 저장 */}
+            <div className="flex items-center gap-2">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="remember-me" className="text-sm text-gray-600 cursor-pointer select-none">
+                아이디 / 비밀번호 저장
+              </label>
+            </div>
+
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <button
               type="submit"
