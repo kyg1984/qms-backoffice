@@ -72,8 +72,9 @@ export const DocumentDetailPage = () => {
   const canWrite = currentUser.role !== 'VIEWER';
   const canApprove = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
   const canDelete = currentUser.role === 'ADMIN';
-  // 양식 업로드: ADMIN·AUTHOR 또는 동일 부서 사용자
+  // 양식 업로드·삭제: ADMIN·AUTHOR 또는 동일 부서 사용자 (타부서 VIEWER 제외)
   const canUploadForm = canWrite || currentUser.department === doc.department;
+  const canDeleteForm = canWrite || currentUser.department === doc.department;
 
   const handleApprove = () => {
     if (!window.confirm('승인으로 변경하시겠습니까?')) return;
@@ -470,12 +471,12 @@ export const DocumentDetailPage = () => {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Rev</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일자</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
-                    {canDelete && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
+                    {canDeleteForm && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {allFiles.length === 0 ? (
-                    <tr><td colSpan={canDelete ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 양식이 없습니다.</td></tr>
+                    <tr><td colSpan={canDeleteForm ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 양식이 없습니다.</td></tr>
                   ) : (
                     allFiles.map((f) => (
                       <tr key={f.id} className="hover:bg-blue-50 transition-colors">
@@ -493,7 +494,7 @@ export const DocumentDetailPage = () => {
                             <Download size={13} /> 다운로드
                           </button>
                         </td>
-                        {canDelete && (
+                        {canDeleteForm && (
                           <td className="px-4 py-3.5 text-center">
                             <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
                               <Trash2 size={14} />
