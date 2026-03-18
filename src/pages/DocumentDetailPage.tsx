@@ -63,7 +63,13 @@ export const DocumentDetailPage = () => {
   );
 
   const canWrite = currentUser.role !== 'VIEWER';
+  const canApprove = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
   const canDelete = currentUser.role === 'ADMIN';
+
+  const handleApprove = () => {
+    if (!window.confirm('승인으로 변경하시겠습니까?')) return;
+    setDocuments(documents.map(d => d.id === doc.id ? { ...d, status: 'APPROVED', updated_at: toDateStr() } : d));
+  };
   const currentFile = documentFiles.find(f => f.document_id === doc.id && f.is_current);
   const allFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'form').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
   const instructionFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'instruction').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
@@ -228,11 +234,12 @@ export const DocumentDetailPage = () => {
             <p className="text-sm text-gray-500 mt-1">{doc.department} · {doc.current_rev} · 최종 수정: {doc.updated_at}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {canWrite && doc.status !== 'APPROVED' && (
+            {doc.status !== 'APPROVED' && (
               <button
-                disabled
-                className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-                title="검토 중인 문서는 다음 절차를 진행할 수 없습니다"
+                onClick={canApprove ? handleApprove : undefined}
+                disabled={!canApprove}
+                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${canApprove ? 'bg-green-600 hover:bg-green-700 text-white border-green-600 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'}`}
+                title={canApprove ? '승인으로 변경합니다' : '권한이 없습니다'}
               >
                 승인으로 변경
               </button>
