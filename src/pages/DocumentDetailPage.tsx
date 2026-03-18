@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, FileText, History, Link2, Info,
   Plus, Trash2, Edit2, X, Maximize2, ExternalLink, Search,
+  Folder, FolderOpen, FolderPlus, ChevronRight, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
@@ -52,6 +53,13 @@ export const DocumentDetailPage = () => {
   const [formDocNumber, setFormDocNumber] = useState('');
   const [formDocName, setFormDocName] = useState('');
   const [formRev, setFormRev] = useState('');
+  const [formFolder, setFormFolder] = useState('');
+
+  // Folder management (양식)
+  const [formFolders, setFormFolders] = useState<string[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
   // Instruction (지침서) upload
   const [showInstructionModal, setShowInstructionModal] = useState(false);
@@ -82,6 +90,8 @@ export const DocumentDetailPage = () => {
   };
   const currentFile = documentFiles.find(f => f.document_id === doc.id && f.is_current);
   const allFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'form').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
+  const allFolderNames = [...new Set([...formFolders, ...allFiles.map(f => f.form_folder).filter(Boolean) as string[]])].sort();
+  const unfoldered = allFiles.filter(f => !f.form_folder);
   const instructionFiles = documentFiles.filter(f => f.document_id === doc.id && f.file_category === 'instruction').sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
   const histories = documentHistories.filter(h => h.document_id === doc.id).sort((a, b) => a.revision_date.localeCompare(b.revision_date));
 
@@ -158,11 +168,12 @@ export const DocumentDetailPage = () => {
     ));
   };
 
-  const resetFormModal = () => { setShowFormModal(false); setFormFileName(''); setFormDocNumber(''); setFormDocName(''); setFormRev(''); };
+  const resetFormModal = () => { setShowFormModal(false); setFormFileName(''); setFormDocNumber(''); setFormDocName(''); setFormRev(''); setFormFolder(''); };
   const handleFormUpload = () => {
     if (!formDocNumber.trim()) { alert('문서번호를 입력하세요.'); return; }
     if (!formDocName.trim()) { alert('문서명을 입력하세요.'); return; }
     if (!formFileName) { alert('파일을 선택하세요.'); return; }
+    const folder = formFolder.trim();
     setDocumentFiles([...documentFiles, {
       id: `f${Date.now()}`,
       document_id: doc.id,
@@ -178,8 +189,31 @@ export const DocumentDetailPage = () => {
       attach_doc_number: formDocNumber.trim(),
       attach_doc_name: formDocName.trim(),
       attach_rev: formRev.trim(),
+      form_folder: folder || undefined,
     }]);
+    if (folder && !formFolders.includes(folder)) {
+      setFormFolders(ff => [...ff, folder]);
+    }
     resetFormModal();
+  };
+
+  const toggleFolder = (name: string) => {
+    setExpandedFolders(ef => {
+      const next = new Set(ef);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  const handleAddFolder = () => {
+    const name = newFolderName.trim();
+    if (!name) { alert('폴더명을 입력하세요.'); return; }
+    if (!formFolders.includes(name) && !allFolderNames.includes(name)) {
+      setFormFolders(ff => [...ff, name]);
+      setExpandedFolders(ef => new Set([...ef, name]));
+    }
+    setShowFolderModal(false);
+    setNewFolderName('');
   };
 
   const resetInstructionModal = () => { setShowInstructionModal(false); setInstructionFileName(''); setInstructionDocNumber(''); setInstructionDocName(''); setInstructionRev(''); setInstructionUploadDate(''); };
@@ -457,56 +491,136 @@ export const DocumentDetailPage = () => {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">양식 <span className="text-sm font-normal text-gray-400 ml-1">({allFiles.length})</span></h3>
               {canUploadForm && (
-                <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                  <Plus size={14} /> 양식 추가
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setShowFolderModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    <FolderPlus size={14} /> 폴더 추가
+                  </button>
+                  <button onClick={() => setShowFormModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                    <Plus size={14} /> 양식 추가
+                  </button>
+                </div>
               )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">문서번호</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">문서명</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Rev</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">업로드일자</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">다운로드</th>
-                    {canDeleteForm && <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">삭제</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {allFiles.length === 0 ? (
-                    <tr><td colSpan={canDeleteForm ? 6 : 5} className="px-6 py-8 text-center text-sm text-gray-400">등록된 양식이 없습니다.</td></tr>
-                  ) : (
-                    allFiles.map((f) => (
-                      <tr key={f.id} className="hover:bg-blue-50 transition-colors">
-                        <td className="px-6 py-3.5 font-mono text-sm font-semibold text-blue-600">{f.attach_doc_number || '-'}</td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <FileText size={14} className="text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-800 font-medium">{f.attach_doc_name || f.file_path.split('/').pop()}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5 text-sm text-gray-600">{f.attach_rev || '-'}</td>
-                        <td className="px-4 py-3.5 text-sm text-gray-500">{f.uploaded_at}</td>
-                        <td className="px-4 py-3.5 text-center">
-                          <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업 - 실제 파일 없음)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors mx-auto">
-                            <Download size={13} /> 다운로드
-                          </button>
-                        </td>
-                        {canDeleteForm && (
-                          <td className="px-4 py-3.5 text-center">
-                            <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
-                              <Trash2 size={14} />
+
+            {allFolderNames.length === 0 && unfoldered.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">등록된 양식이 없습니다.</div>
+            ) : (
+              <div>
+                {/* 폴더 그룹 */}
+                {allFolderNames.map(folder => {
+                  const folderFiles = allFiles.filter(f => f.form_folder === folder);
+                  const isExpanded = expandedFolders.has(folder);
+                  return (
+                    <div key={folder} className="border-b border-gray-100 last:border-0">
+                      <div
+                        className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none"
+                        onClick={() => toggleFolder(folder)}
+                      >
+                        {isExpanded ? <ChevronDown size={15} className="text-gray-400" /> : <ChevronRight size={15} className="text-gray-400" />}
+                        {isExpanded ? <FolderOpen size={16} className="text-yellow-500" /> : <Folder size={16} className="text-yellow-500" />}
+                        <span className="text-sm font-semibold text-gray-800">{folder}</span>
+                        <span className="text-xs text-gray-400 font-normal">({folderFiles.length})</span>
+                        <div className="ml-auto flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          {canUploadForm && (
+                            <button
+                              onClick={() => { setFormFolder(folder); setShowFormModal(true); }}
+                              className="p-1.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="이 폴더에 양식 추가"
+                            >
+                              <Plus size={13} />
                             </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                          )}
+                          {canDeleteForm && folderFiles.length === 0 && (
+                            <button
+                              onClick={() => setFormFolders(ff => ff.filter(fn => fn !== folder))}
+                              className="p-1.5 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors"
+                              title="빈 폴더 삭제"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="bg-gray-50 border-t border-gray-100">
+                          {folderFiles.length === 0 ? (
+                            <p className="pl-12 py-4 text-sm text-gray-400">이 폴더에 양식이 없습니다.</p>
+                          ) : (
+                            <table className="w-full">
+                              <tbody className="divide-y divide-gray-100">
+                                {folderFiles.map(f => (
+                                  <tr key={f.id} className="hover:bg-blue-50 transition-colors">
+                                    <td className="pl-12 pr-4 py-3 font-mono text-sm font-semibold text-blue-600 w-36">{f.attach_doc_number || '-'}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex items-center gap-2">
+                                        <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                                        <span className="text-sm text-gray-800 font-medium">{f.attach_doc_name || f.file_path.split('/').pop()}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-600 w-24">{f.attach_rev || '-'}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-500 w-32">{f.uploaded_at}</td>
+                                    <td className="px-4 py-3 text-center w-24">
+                                      <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mx-auto">
+                                        <Download size={13} /> 다운로드
+                                      </button>
+                                    </td>
+                                    {canDeleteForm && (
+                                      <td className="px-4 py-3 text-center w-16">
+                                        <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* 폴더 미지정 파일 */}
+                {unfoldered.length > 0 && (
+                  <div>
+                    {allFolderNames.length > 0 && (
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">미분류</div>
+                    )}
+                    <table className="w-full">
+                      <tbody className="divide-y divide-gray-100">
+                        {unfoldered.map(f => (
+                          <tr key={f.id} className="hover:bg-blue-50 transition-colors">
+                            <td className="px-6 py-3.5 font-mono text-sm font-semibold text-blue-600">{f.attach_doc_number || '-'}</td>
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-2">
+                                <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                                <span className="text-sm text-gray-800 font-medium">{f.attach_doc_name || f.file_path.split('/').pop()}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-sm text-gray-600">{f.attach_rev || '-'}</td>
+                            <td className="px-4 py-3.5 text-sm text-gray-500">{f.uploaded_at}</td>
+                            <td className="px-4 py-3.5 text-center">
+                              <button onClick={() => alert(`다운로드: ${f.file_path.split('/').pop()}\n(목업)`)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mx-auto">
+                                <Download size={13} /> 다운로드
+                              </button>
+                            </td>
+                            {canDeleteForm && (
+                              <td className="px-4 py-3.5 text-center">
+                                <button onClick={() => setDocumentFiles(documentFiles.filter(df => df.id !== f.id))} className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -712,6 +826,20 @@ export const DocumentDetailPage = () => {
       {/* Form (양식) Upload Modal */}
       <Modal isOpen={showFormModal} onClose={resetFormModal} title="양식 추가" size="md">
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">폴더</label>
+            <input
+              type="text"
+              list="form-folder-list"
+              value={formFolder}
+              onChange={e => setFormFolder(e.target.value)}
+              placeholder="폴더 선택 또는 직접 입력 (선택사항)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <datalist id="form-folder-list">
+              {allFolderNames.map(fn => <option key={fn} value={fn} />)}
+            </datalist>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">문서번호 <span className="text-red-500">*</span></label>
@@ -746,6 +874,28 @@ export const DocumentDetailPage = () => {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={resetFormModal} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
             <button onClick={handleFormUpload} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">추가</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Folder Create Modal */}
+      <Modal isOpen={showFolderModal} onClose={() => { setShowFolderModal(false); setNewFolderName(''); }} title="폴더 추가" size="sm">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">폴더명 <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddFolder()}
+              placeholder="폴더명을 입력하세요"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => { setShowFolderModal(false); setNewFolderName(''); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+            <button onClick={handleAddFolder} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">추가</button>
           </div>
         </div>
       </Modal>

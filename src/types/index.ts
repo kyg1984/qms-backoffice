@@ -42,6 +42,7 @@ export interface DocumentFile {
   attach_doc_number?: string;
   attach_doc_name?: string;
   attach_rev?: string;
+  form_folder?: string;
 }
 
 export interface DocumentHistory {
