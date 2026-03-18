@@ -385,25 +385,6 @@ export const DocumentDetailPage = () => {
                 </button>
               )}
             </div>
-            {/* 문서 기본 정보 요약 */}
-            <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">문서번호</p>
-                <p className="text-sm font-semibold text-blue-600 font-mono mt-0.5">{doc.doc_number}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">문서명</p>
-                <p className="text-sm font-medium text-gray-800 mt-0.5 truncate">{doc.doc_name}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">현재 Rev</p>
-                <p className="text-sm font-medium text-gray-800 mt-0.5">{doc.current_rev}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">상태</p>
-                <div className="mt-0.5"><StatusBadge status={doc.status} /></div>
-              </div>
-            </div>
             <div className="space-y-2">
               {instructionFiles.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">등록된 지침서가 없습니다.</p>
