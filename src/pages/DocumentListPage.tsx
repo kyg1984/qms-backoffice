@@ -19,6 +19,7 @@ const INITIAL_FORM = {
   doc_type: 'QP' as DocType,
   department: '',
   current_rev: '',
+  revised_at: '',
   fileName: '',
   fileExt: 'pdf',
 };
@@ -101,7 +102,7 @@ export const DocumentListPage = () => {
       current_rev: trimmedForm.current_rev,
       created_by: currentUser.id,
       created_at: toDateStr(),
-      updated_at: toDateStr(),
+      updated_at: trimmedForm.revised_at.trim() || toDateStr(),
     };
     const sorted = [...documents, newDoc].sort((a, b) => a.doc_number.localeCompare(b.doc_number));
     setDocuments(sorted);
@@ -233,7 +234,7 @@ export const DocumentListPage = () => {
                   ['department', '담당부서'],
                   ['current_rev', 'Rev'],
                   ['status', '상태'],
-                  ['updated_at', '최종 수정일'],
+                  ['updated_at', '개정일자'],
                 ] as [SortKey, string][]).map(([key, label]) => (
                   <th
                     key={key}
@@ -348,6 +349,16 @@ export const DocumentListPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">개정일자</label>
+            <input
+              type="date"
+              value={uploadForm.revised_at}
+              onChange={e => setUploadForm(f => ({ ...f, revised_at: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">미입력 시 오늘 날짜로 자동 설정됩니다.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">파일 첨부 <span className="text-red-500">*</span></label>
