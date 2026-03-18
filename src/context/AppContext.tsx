@@ -15,6 +15,8 @@ const DEFAULT_USER: User = {
   department: undefined, is_active: false, created_at: '', updated_at: '',
 };
 
+const SESSION_KEY = 'qms_session_user';
+
 interface AppContextType {
   currentUser: User;
   setCurrentUser: (user: User) => void;
@@ -41,13 +43,29 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
+  const [currentUser, setCurrentUserState] = useState<User>(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_USER;
+    } catch { return DEFAULT_USER; }
+  });
   const [users, setUsers] = useState<User[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [documentFiles, setDocumentFiles] = useState<DocumentFile[]>([]);
   const [documentHistories, setDocumentHistories] = useState<DocumentHistory[]>([]);
   const [documentRelations, setDocumentRelations] = useState<DocumentRelation[]>([]);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedInState] = useState(() => !!localStorage.getItem(SESSION_KEY));
+
+  const setCurrentUser = (user: User) => {
+    setCurrentUserState(user);
+    if (user.id) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    else localStorage.removeItem(SESSION_KEY);
+  };
+
+  const setIsLoggedIn = (v: boolean) => {
+    setIsLoggedInState(v);
+    if (!v) localStorage.removeItem(SESSION_KEY);
+  };
   const [departments, setDepartments] = useState<string[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
