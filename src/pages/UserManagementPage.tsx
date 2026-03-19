@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Edit2, UserX, UserCheck, Eye, EyeOff, Trash2, Building2, ClipboardList, CheckCircle2, XCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Modal } from '../components/Modal';
@@ -19,9 +19,7 @@ const ROLE_COLOR: Record<UserRole, string> = {
 const INIT_FORM = { name: '', email: '', password: '', role: 'VIEWER' as UserRole, department: '' };
 
 export const UserManagementPage = () => {
-  const { users, setUsers, currentUser, departments, setDepartments, accessRequests, setAccessRequests, refreshData } = useApp();
-
-  useEffect(() => { refreshData(); }, []);
+  const { users, setUsers, currentUser, departments, setDepartments, accessRequests, setAccessRequests } = useApp();
   const navigate = useNavigate();
   const [newDeptName, setNewDeptName] = useState('');
   const [showModal, setShowModal] = useState(false);
