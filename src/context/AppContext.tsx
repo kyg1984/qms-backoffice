@@ -37,6 +37,7 @@ interface AppContextType {
   accessRequests: AccessRequest[];
   setAccessRequests: (reqs: AccessRequest[]) => void;
   isLoading: boolean;
+  loadError: boolean;
   refreshData: () => Promise<void>;
 }
 
@@ -69,18 +70,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [departments, setDepartments] = useState<string[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(false);
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('요청 시간이 초과됐습니다. Supabase 프로젝트가 일시 정지 상태일 수 있습니다.')), 12000)
+    );
     try {
-      const [u, docs, files, histories, relations, depts, requests] = await Promise.all([
-        userService.getAll(),
-        documentService.getAll(),
-        fileService.getAll(),
-        historyService.getAll(),
-        relationService.getAll(),
-        departmentService.getAll(),
-        accessRequestService.getAll(),
+      const [u, docs, files, histories, relations, depts, requests] = await Promise.race([
+        Promise.all([
+          userService.getAll(),
+          documentService.getAll(),
+          fileService.getAll(),
+          historyService.getAll(),
+          relationService.getAll(),
+          departmentService.getAll(),
+          accessRequestService.getAll(),
+        ]),
+        timeout,
       ]);
       setUsers(u);
       setDocuments(docs);
@@ -91,6 +100,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setAccessRequests(requests);
     } catch (err) {
       console.error('Supabase 데이터 로드 실패:', err);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -113,6 +123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       departments, setDepartments,
       accessRequests, setAccessRequests,
       isLoading,
+      loadError,
       refreshData,
     }}>
       {children}
