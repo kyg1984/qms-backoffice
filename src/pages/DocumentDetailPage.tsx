@@ -157,6 +157,7 @@ export const DocumentDetailPage = () => {
 
   const handleNewVersion = async () => {
     if (!newVerRev || !newVerFile) { alert('Rev 번호와 파일을 입력하세요.'); return; }
+    if (!newVerFile.toLowerCase().endsWith('.pdf')) { alert('PDF 파일만 업로드할 수 있습니다.'); return; }
     try {
       let filePath = `/files/${newVerFile}`;
       if (newVerFileObj) {
@@ -477,7 +478,7 @@ export const DocumentDetailPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-700">문서 파일 업로드</p>
-                  <p className="text-xs text-gray-400 mt-0.5">새 파일을 업로드하면 현재 버전이 교체됩니다. 모든 형식 지원.</p>
+                  <p className="text-xs text-gray-400 mt-0.5">새 파일을 업로드하면 현재 버전이 교체됩니다. <span className="text-red-400 font-medium">PDF 파일만 지원</span></p>
                 </div>
                 <button
                   onClick={() => setShowNewVersionModal(true)}
@@ -857,14 +858,23 @@ export const DocumentDetailPage = () => {
                 </div>
               ) : (
                 <label className="cursor-pointer">
-                  <p className="text-sm text-gray-500">파일을 선택하세요</p>
+                  <p className="text-sm text-gray-500">PDF 파일을 선택하세요</p>
+                  <p className="text-xs text-gray-400 mt-0.5">*.pdf 형식만 업로드 가능합니다</p>
                   <input
                     type="file"
-                    accept="*/*"
+                    accept="application/pdf,.pdf"
                     className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0];
-                      if (file) { setNewVerFile(file.name); setNewVerExt(file.name.split('.').pop() ?? 'pdf'); setNewVerFileObj(file); }
+                      if (!file) return;
+                      if (!file.name.toLowerCase().endsWith('.pdf')) {
+                        alert('PDF 파일만 업로드할 수 있습니다.');
+                        e.target.value = '';
+                        return;
+                      }
+                      setNewVerFile(file.name);
+                      setNewVerExt('pdf');
+                      setNewVerFileObj(file);
                     }}
                   />
                 </label>
