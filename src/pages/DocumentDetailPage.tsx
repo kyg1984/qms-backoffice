@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, FileText, History, Link2, Info,
-  Plus, Trash2, Edit2, X, Maximize2, ExternalLink, Search,
+  Plus, Trash2, Edit2, X, ExternalLink, Search,
   Folder, FolderOpen, FolderPlus, ChevronRight, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -10,7 +10,6 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import type { DocumentHistory } from '../types';
 import { toDateStr } from '../utils/date';
-import { isWebViewSupported } from '../config/fileTypes';
 import { documentService } from '../services/documentService';
 import { fileService } from '../services/fileService';
 import { historyService } from '../services/historyService';
@@ -44,7 +43,6 @@ export const DocumentDetailPage = () => {
 
   const doc = documents.find(d => d.id === id);
   const [activeTab, setActiveTab] = useState<Tab>('webview');
-  const [fullscreen, setFullscreen] = useState(false);
 
   // New version upload modal
   const [showNewVersionModal, setShowNewVersionModal] = useState(false);
@@ -143,6 +141,18 @@ export const DocumentDetailPage = () => {
         alert(`다운로드: ${doc.doc_number}_${doc.doc_name}_${doc.current_rev}.${currentFile.file_ext}`);
       }
     } catch { alert('파일 다운로드 중 오류가 발생했습니다.'); }
+  };
+
+  const handleOpenFile = async (file: typeof currentFile) => {
+    if (!file) return;
+    try {
+      if (file.file_path.includes('supabase')) {
+        const url = await fileService.getSignedUrl(file.file_path);
+        window.open(url, '_blank');
+      } else {
+        alert('업로드된 파일만 열기가 가능합니다.');
+      }
+    } catch { alert('파일을 열 수 없습니다.'); }
   };
 
   const handleNewVersion = async () => {
@@ -346,12 +356,8 @@ export const DocumentDetailPage = () => {
     } catch { alert('연관 문서 추가 중 오류가 발생했습니다.'); }
   };
 
-  const webViewSupported = currentFile && isWebViewSupported(currentFile.file_ext);
-  const isPdfViewable = currentFile && (currentFile.file_ext === 'pdf' || currentFile.pdf_path);
-  const isConverting = currentFile?.file_ext === 'docx' && !currentFile.pdf_path;
-
   const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: 'webview', label: '웹뷰', icon: FileText },
+    { key: 'webview', label: '파일', icon: FileText },
     { key: 'info', label: '상세 정보', icon: Info },
     { key: 'history', label: `변경이력 (${histories.length})`, icon: History },
     { key: 'relations', label: `연관 문서 (${relatedDocs.length})`, icon: Link2 },
@@ -422,56 +428,52 @@ export const DocumentDetailPage = () => {
       {/* Tab Content */}
       {activeTab === 'webview' && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-2">
-              <FileText size={15} className="text-gray-400" />
-              <span className="text-sm text-gray-600 font-medium">
-                {currentFile ? `${doc.doc_name} · ${doc.current_rev}.${currentFile.file_ext}` : '파일 없음'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setFullscreen(true)} className="p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors" title="전체화면"><Maximize2 size={15} /></button>
-              <button onClick={handleDownload} disabled={doc.status !== 'APPROVED'} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${doc.status === 'APPROVED' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`} title={doc.status !== 'APPROVED' ? '승인된 문서만 다운로드 가능합니다' : undefined}><Download size={13} />다운로드</button>
-            </div>
-          </div>
-          <div className="flex items-center justify-center bg-gray-100" style={{minHeight: '70vh'}}>
+          {/* 현재 파일 영역 */}
+          <div className="p-6">
+            <p className="text-sm font-semibold text-gray-700 mb-3">현재 문서 파일</p>
             {!currentFile ? (
-              <div className="text-center text-gray-400">
-                <FileText size={40} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm">등록된 파일이 없습니다.</p>
-              </div>
-            ) : isConverting ? (
-              <div className="text-center text-gray-500">
-                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm font-medium">변환 중...</p>
-                <p className="text-xs text-gray-400 mt-1">Word 파일을 PDF로 변환하고 있습니다.</p>
-              </div>
-            ) : !webViewSupported ? (
-              <div className="text-center text-gray-500 p-8">
-                <FileText size={40} className="mx-auto mb-3 opacity-40" />
-                <p className="text-sm font-medium">.{currentFile.file_ext} 형식은 웹뷰를 지원하지 않습니다.</p>
-                <p className="text-xs text-gray-400 mt-1 mb-4">파일을 다운로드하여 열람하세요.</p>
-                <button onClick={handleDownload} disabled={doc.status !== 'APPROVED'} className={`flex items-center gap-2 mx-auto px-4 py-2 rounded-lg text-sm transition-colors ${doc.status === 'APPROVED' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`} title={doc.status !== 'APPROVED' ? '승인된 문서만 다운로드 가능합니다' : undefined}>
-                  <Download size={15} /> 다운로드
-                </button>
+              <div className="flex items-center justify-center bg-gray-50 rounded-lg border border-dashed border-gray-300 py-16">
+                <div className="text-center text-gray-400">
+                  <FileText size={40} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">등록된 파일이 없습니다.</p>
+                </div>
               </div>
             ) : (
-              <div className="w-full flex items-center justify-center bg-white border border-gray-200 m-4 rounded-lg" style={{minHeight: '65vh'}}>
-                <div className="text-center text-gray-400">
-                  <div className="w-16 h-20 bg-red-50 border border-red-200 rounded flex items-center justify-center mx-auto mb-3">
-                    <span className="text-red-500 font-bold text-lg uppercase">{currentFile.file_ext}</span>
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-14 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 font-bold text-xs uppercase">{currentFile.file_ext}</span>
                   </div>
-                  <p className="text-sm font-medium text-gray-600">{isPdfViewable ? 'PDF 뷰어 영역' : '뷰어'}</p>
-                  <p className="text-xs text-gray-400 mt-1">실제 환경에서는 여기에 문서가 표시됩니다</p>
-                  <p className="text-xs text-gray-300 mt-0.5 font-mono">{currentFile.file_path}</p>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{currentFile.file_path.split('/').pop()}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {doc.current_rev} · .{currentFile.file_ext} · {(currentFile.file_size / 1024).toFixed(0)}KB · {currentFile.uploaded_at}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleOpenFile(currentFile)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <ExternalLink size={14} /> 열기
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    disabled={doc.status !== 'APPROVED'}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${doc.status === 'APPROVED' ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-gray-200 text-gray-400 cursor-not-allowed'}`}
+                    title={doc.status !== 'APPROVED' ? '승인된 문서만 다운로드 가능합니다' : undefined}
+                  >
+                    <Download size={14} /> 다운로드
+                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* 웹뷰 업로드 섹션 */}
+          {/* 파일 업로드 섹션 */}
           {canWrite && (
-            <div className="border-t border-gray-200 px-4 py-4 bg-gray-50">
+            <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-700">문서 파일 업로드</p>
@@ -484,13 +486,6 @@ export const DocumentDetailPage = () => {
                   <Plus size={14} /> 파일 업로드
                 </button>
               </div>
-              {currentFile && (
-                <div className="mt-3 flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 text-sm">
-                  <FileText size={14} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-700 font-medium">{currentFile.file_path.split('/').pop()}</span>
-                  <span className="text-gray-400 text-xs">.{currentFile.file_ext} · {(currentFile.file_size / 1024).toFixed(0)}KB · {currentFile.uploaded_at}</span>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -831,24 +826,6 @@ export const DocumentDetailPage = () => {
         </div>
       )}
 
-      {/* Fullscreen modal */}
-      {fullscreen && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-900">
-            <span className="text-white text-sm">{doc.doc_number} - {doc.doc_name}</span>
-            <div className="flex items-center gap-2">
-              <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"><Download size={13} />다운로드</button>
-              <button onClick={() => setFullscreen(false)} className="p-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors"><X size={16} /></button>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <p className="text-sm">전체화면 뷰어 영역</p>
-              <p className="text-xs mt-1 opacity-60">실제 환경에서는 여기에 PDF 뷰어가 표시됩니다</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* New Version Modal */}
       <Modal isOpen={showNewVersionModal} onClose={() => setShowNewVersionModal(false)} title="새 버전 등록" size="md">
