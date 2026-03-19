@@ -160,8 +160,7 @@ export const DocumentDetailPage = () => {
     try {
       let filePath = `/files/${newVerFile}`;
       if (newVerFileObj) {
-        const storagePath = `documents/${doc.id}/${Date.now()}_${newVerFile}`;
-        filePath = await fileService.uploadFile(storagePath, newVerFileObj);
+        filePath = await fileService.uploadFile(`documents/${doc.id}/`, newVerFileObj);
       }
       // Mark old files as not current
       const currentFiles = documentFiles.filter(f => f.document_id === doc.id && f.is_current);
@@ -179,6 +178,7 @@ export const DocumentDetailPage = () => {
         is_current: true,
         uploaded_by: currentUser.id,
         uploaded_at: toDateStr(),
+        original_name: newVerFile,
       };
       await fileService.create(newFile);
       const docUpdates = { current_rev: newVerRev, status: 'REVIEW' as const, updated_at: toDateStr() };
@@ -258,8 +258,7 @@ export const DocumentDetailPage = () => {
     try {
       let filePath = `/files/${formFileName}`;
       if (formFileObj) {
-        const storagePath = `forms/${doc.id}/${formFolder.trim()}/${Date.now()}_${formFileName}`;
-        filePath = await fileService.uploadFile(storagePath, formFileObj);
+        filePath = await fileService.uploadFile(`forms/${doc.id}/${formFolder.trim()}/`, formFileObj);
       }
       const newFile = {
         id: `f${Date.now()}`,
@@ -272,6 +271,7 @@ export const DocumentDetailPage = () => {
         is_current: false,
         uploaded_by: currentUser.id,
         uploaded_at: toDateStr(),
+        original_name: formFileName,
         file_category: 'form' as const,
         attach_doc_number: formDocNumber.trim(),
         attach_doc_name: formDocName.trim(),
@@ -313,8 +313,7 @@ export const DocumentDetailPage = () => {
     try {
       let filePath = `/files/${instructionFileName}`;
       if (instructionFileObj) {
-        const storagePath = `instructions/${doc.id}/${Date.now()}_${instructionFileName}`;
-        filePath = await fileService.uploadFile(storagePath, instructionFileObj);
+        filePath = await fileService.uploadFile(`instructions/${doc.id}/`, instructionFileObj);
       }
       const newFile = {
         id: `f${Date.now()}`,
@@ -327,6 +326,7 @@ export const DocumentDetailPage = () => {
         is_current: false,
         uploaded_by: currentUser.id,
         uploaded_at: instructionUploadDate.trim() || toDateStr(),
+        original_name: instructionFileName,
         file_category: 'instruction' as const,
         attach_doc_number: instructionDocNumber.trim(),
         attach_doc_name: instructionDocName.trim(),
@@ -445,7 +445,7 @@ export const DocumentDetailPage = () => {
                     <span className="text-blue-600 font-bold text-xs uppercase">{currentFile.file_ext}</span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{currentFile.file_path.split('/').pop()}</p>
+                    <p className="text-sm font-medium text-gray-800">{currentFile.original_name || currentFile.file_path.split('/').pop()}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {doc.current_rev} · .{currentFile.file_ext} · {(currentFile.file_size / 1024).toFixed(0)}KB · {currentFile.uploaded_at}
                     </p>

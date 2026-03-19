@@ -38,6 +38,7 @@ export interface DocumentFile {
   is_current: boolean;
   uploaded_by: string;
   uploaded_at: string;
+  original_name?: string;
   file_category?: 'form' | 'instruction';
   attach_doc_number?: string;
   attach_doc_name?: string;
