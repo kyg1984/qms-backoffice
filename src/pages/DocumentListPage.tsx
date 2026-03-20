@@ -110,8 +110,7 @@ export const DocumentListPage = () => {
       const docId = `d${Date.now()}`;
       let filePath = `/files/${trimmedForm.fileName}`;
       if (uploadFileObj) {
-        const storagePath = `documents/${docId}/${Date.now()}_${trimmedForm.fileName}`;
-        filePath = await fileService.uploadFile(storagePath, uploadFileObj);
+        filePath = await fileService.uploadFile(`documents/${docId}/`, uploadFileObj);
       }
       const newDoc = {
         id: docId,
