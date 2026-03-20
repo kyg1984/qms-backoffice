@@ -136,6 +136,7 @@ export const DocumentListPage = () => {
         is_current: true,
         uploaded_by: currentUser.id,
         uploaded_at: toDateStr(),
+        original_name: uploadFileObj?.name ?? trimmedForm.fileName,
       };
       await fileService.create(newFile);
       const sorted = [...documents, newDoc].sort((a, b) => a.doc_number.localeCompare(b.doc_number));
