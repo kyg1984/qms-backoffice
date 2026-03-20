@@ -47,15 +47,7 @@ export const DocumentListPage = () => {
   const [uploadError, setUploadError] = useState('');
   const [uploadFileObj, setUploadFileObj] = useState<File | null>(null);
 
-  const nextQmNumber = useMemo(() => {
-    const max = documents
-      .filter(d => d.doc_type === 'QM')
-      .reduce((acc, d) => {
-        const m = d.doc_number.match(/QM-(\d+)/);
-        return m ? Math.max(acc, parseInt(m[1])) : acc;
-      }, 0);
-    return `QM-${String(max + 1).padStart(3, '0')}`;
-  }, [documents]);
+  const QM_DOC_NUMBER = 'QM';
 
   const canWrite = currentUser.role !== 'VIEWER';
   const canDelete = currentUser.role === 'ADMIN' || currentUser.role === 'AUTHOR';
@@ -94,7 +86,7 @@ export const DocumentListPage = () => {
   const handleUpload = async () => {
     setUploadError('');
     const composedDocNumber = uploadForm.doc_type === 'QM'
-      ? nextQmNumber
+      ? QM_DOC_NUMBER
       : `QP-${docNumberSuffix.trim()}`;
     const trimmedForm = { ...uploadForm, doc_number: composedDocNumber, department: uploadForm.department.trim() };
     setUploadForm(trimmedForm);
@@ -381,7 +373,7 @@ export const DocumentListPage = () => {
               ) : (
                 <input
                   type="text"
-                  value={nextQmNumber}
+                  value={QM_DOC_NUMBER}
                   disabled
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
                 />
