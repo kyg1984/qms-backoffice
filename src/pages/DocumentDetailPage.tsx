@@ -190,7 +190,11 @@ export const DocumentDetailPage = () => {
       setNewVerRev('');
       setNewVerFile('');
       setNewVerFileObj(null);
-    } catch { alert('새 버전 업로드 중 오류가 발생했습니다.'); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error('[handleNewVersion error]', msg, err);
+      alert(`새 버전 업로드 중 오류가 발생했습니다.\n\n${msg}`);
+    }
   };
 
   const openHistoryCreate = () => {
