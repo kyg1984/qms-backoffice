@@ -263,7 +263,7 @@ export const DocumentDetailPage = () => {
     try {
       let filePath = `/files/${formFileName}`;
       if (formFileObj) {
-        filePath = await fileService.uploadFile(`forms/${doc.id}/${formFolder.trim()}/`, formFileObj);
+        filePath = await fileService.uploadFile(`forms/${doc.id}/`, formFileObj);
       }
       const newFile = {
         id: `f${Date.now()}`,
